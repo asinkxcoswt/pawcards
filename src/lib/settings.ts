@@ -19,6 +19,7 @@ export function defaultSettings(): Settings {
     syncId: newSyncId(),
     lastSyncAt: 0,
     nickname: '',
+    roomReviewCount: 20,
   }
 }
 

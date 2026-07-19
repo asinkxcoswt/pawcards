@@ -187,8 +187,9 @@ test('group review: host drives, guest follows live, grading imports implicitly'
   })
   await expect(B.getByTestId('room-members')).toContainText('Fai', { timeout: 5000 })
 
-  /* host starts; guest sees the banner and joins */
+  /* host starts (dialog → default All of the 2 shared cards); guest sees the banner and joins */
   await A.getByTestId('room-review-start').click()
+  await A.getByTestId('rr-start-go').click()
   await expect(A.getByTestId('rr-card')).toBeVisible({ timeout: 5000 })
   await expect(B.getByTestId('room-review-join')).toBeVisible({ timeout: 5000 })
   await B.getByTestId('room-review-join').click()
@@ -224,6 +225,40 @@ test('group review: host drives, guest follows live, grading imports implicitly'
   await expect(A.getByTestId('rr-card')).toHaveCount(0, { timeout: 5000 })
   await expect(B.getByTestId('rr-card')).toHaveCount(0, { timeout: 5000 })
   await expect(B.locator('#toast')).toContainText('finished')
+})
+
+test('group review: host picks a card count, app draws that many at random', async ({ browser }) => {
+  kv.clear()
+  Object.assign(room, { meta: null, decks: [], conns: [], review: null })
+
+  const A = await (await browser.newContext()).newPage()
+  await wire(A)
+  await resetApp(A, { syncUrl: WORKER + '/?key=pw', syncId: 'paw-e2e-rr-2', nickname: 'Khaan' })
+  await createDeckAndCard(A, 'Herbs', 'c1')
+  await A.getByText('‹').click()
+  const deckId = await store<string>(A, 's => s.decks[0].id')
+  // grow the deck to 4 cards
+  await A.evaluate((deckId) => {
+    const w = window as any
+    const t = Date.now()
+    const extra = ['c2', 'c3', 'c4'].map((id) => ({ id, deckId, created: t, updated: t, front: [], back: [], backText: id, srs: null, polished: {} }))
+    w.__store.setState({ cards: [...w.__store.getState().cards, ...extra] })
+  }, deckId)
+  await A.getByText('‹').click()
+  await A.getByTestId('room-create').click()
+  await A.getByTestId('room-name').fill('Herb Quiz')
+  await A.getByTestId('room-create-go').click()
+  await A.getByTestId('room-share-deck').click()
+  await A.getByTestId('pick-deck-' + deckId).click()
+  await expect(A.getByTestId('room-deck-' + deckId)).toContainText('4 cards', { timeout: 5000 })
+
+  // host asks for just 2 of the 4 shared cards
+  await A.getByTestId('room-review-start').click()
+  await A.getByTestId('rr-count-input').fill('2')
+  await A.getByTestId('rr-start-go').click()
+  await expect(A.getByTestId('rr-progress')).toHaveText('1 / 2', { timeout: 5000 })
+  // the choice is remembered for next time
+  expect(await store<number>(A, 's => s.settings.roomReviewCount')).toBe(2)
 })
 
 test('room: live create, share, join, import, leave', async ({ browser }) => {

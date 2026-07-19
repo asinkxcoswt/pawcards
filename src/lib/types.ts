@@ -64,6 +64,8 @@ export interface Settings {
   lastSyncAt: number
   /** shown to friends on decks you share; asked on first share */
   nickname: string
+  /** host preference: cards to draw per group review (0 = all shared cards) */
+  roomReviewCount: number
 }
 
 /**

@@ -24,6 +24,8 @@ export default function RoomView() {
   const [busyDeck, setBusyDeck] = useState('')
   const [inReview, setInReview] = useState(false)
   const [starting, setStarting] = useState(false)
+  const [showStart, setShowStart] = useState(false)
+  const [count, setCount] = useState(20)
   /** deckId → fetched payload; shared with the review so nothing downloads twice */
   const cacheRef = useRef(new Map<string, ShareDoc>())
 
@@ -97,7 +99,11 @@ export default function RoomView() {
         const j = Math.floor(Math.random() * (i + 1))
         ;[refs[i], refs[j]] = [refs[j], refs[i]]
       }
-      send({ type: 'start-review', queue: refs })
+      // draw the host-chosen number of cards (0 = all) from the shuffled pool
+      const wanted = count > 0 ? Math.min(count, refs.length) : refs.length
+      useStore.getState().saveSettings({ roomReviewCount: count })
+      setShowStart(false)
+      send({ type: 'start-review', queue: refs.slice(0, wanted) })
       setInReview(true)
     } catch (e) {
       showToast('Could not start: ' + (e as Error).message)
@@ -111,6 +117,13 @@ export default function RoomView() {
   const imported = (meta: RoomDeckMeta) => myDecks.some((d) => d.id === meta.deckId)
   const shareable = myDecks.filter((d) => !d.sharedBy)
   const decks = state?.decks ?? []
+  const totalShared = decks.reduce((s, d) => s + d.count, 0)
+
+  const openStart = () => {
+    const pref = settings.roomReviewCount || totalShared
+    setCount(Math.max(1, Math.min(pref, totalShared)))
+    setShowStart(true)
+  }
 
   return (
     <section className="flex h-dvh flex-col overflow-hidden">
@@ -150,8 +163,8 @@ export default function RoomView() {
             🤝 Share a deck
           </button>
           {!review && decks.length > 0 && (
-            <button className="btn btn-accent" data-testid="room-review-start" disabled={status !== 'live' || starting} onClick={() => void startGroupReview()}>
-              {starting ? '⏳ Starting…' : '🎬 Start group review'}
+            <button className="btn btn-accent" data-testid="room-review-start" disabled={status !== 'live' || starting} onClick={openStart}>
+              🎬 Start group review
             </button>
           )}
         </div>
@@ -242,6 +255,55 @@ export default function RoomView() {
       )}
 
       {invite && <InviteModal name={ref.name} url={ref.url} code={ref.code} onClose={() => setInvite(false)} />}
+
+      {showStart && (
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-[rgba(30,25,18,.4)]" onClick={(e) => e.target === e.currentTarget && setShowStart(false)}>
+          <div className="w-full max-w-[560px] rounded-t-[20px] bg-panel p-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
+            <h2 className="m-0 mb-1 text-[17px] font-bold">🎬 Start group review</h2>
+            <p className="hint mb-3.5">
+              Randomly draw cards from the {totalShared} shared card{totalShared === 1 ? '' : 's'} across {decks.length}{' '}
+              deck{decks.length === 1 ? '' : 's'}. Everyone follows your lead; grading stays private.
+            </p>
+            <label className="field-label">How many cards?</label>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              {[10, 20, 50].filter((n) => n < totalShared).map((n) => (
+                <button
+                  key={n}
+                  className={'btn ' + (count === n ? 'btn-primary' : '')}
+                  data-testid={'rr-count-' + n}
+                  onClick={() => setCount(n)}
+                >
+                  {n}
+                </button>
+              ))}
+              <button
+                className={'btn ' + (count >= totalShared ? 'btn-primary' : '')}
+                data-testid="rr-count-all"
+                onClick={() => setCount(totalShared)}
+              >
+                All ({totalShared})
+              </button>
+              <input
+                className="field-input w-24"
+                type="number"
+                min={1}
+                max={totalShared}
+                value={count}
+                data-testid="rr-count-input"
+                onChange={(e) => setCount(Math.max(1, Math.min(totalShared, parseInt(e.target.value, 10) || 1)))}
+              />
+            </div>
+            <div className="flex gap-2.5">
+              <button className="btn btn-accent" data-testid="rr-start-go" disabled={starting} onClick={() => void startGroupReview()}>
+                {starting ? '⏳ Starting…' : '🎬 Start'}
+              </button>
+              <button className="btn btn-ghost" onClick={() => setShowStart(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {picking && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-[rgba(30,25,18,.4)]" onClick={(e) => e.target === e.currentTarget && setPicking(false)}>
