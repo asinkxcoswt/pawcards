@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { useStore } from '../store'
-import { encodeRoomQr, fetchRoomDeck, shareDeckToRoom, unshareDeckFromRoom, useRoom, type RoomDeckMeta } from '../lib/room'
+import { encodeRoomQr, fetchRoomDeck, ROOM_PROTO, shareDeckToRoom, unshareDeckFromRoom, useRoom, type RoomDeckMeta } from '../lib/room'
 import type { ShareDoc } from '../lib/share'
 import ConfirmButton from './ConfirmButton'
 import RoomReview from './RoomReview'
@@ -132,6 +132,12 @@ export default function RoomView() {
               ? '⏳ Connecting to the room…'
               : ''}
         </p>
+        {status === 'live' && state && (state.proto ?? 0) < ROOM_PROTO && (
+          <p className="hint mb-3 text-again" data-testid="room-proto-warning">
+            ⚠ This room's worker is older than your app — group review and unshare won't work until the room creator
+            redeploys it (<b>bun worker/deploy.ts</b>).
+          </p>
+        )}
         {status === 'error' && (
           <p className="hint mb-3 text-again" data-testid="room-error">
             Can't reach this room. Make sure you're online and the room's worker is deployed with room support

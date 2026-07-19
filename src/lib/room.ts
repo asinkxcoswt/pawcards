@@ -39,7 +39,12 @@ export interface RoomReviewState {
   startedAt: number
 }
 
+/** room protocol this app speaks; the DO broadcasts its own in state.proto */
+export const ROOM_PROTO = 2
+
 export interface RoomState {
+  /** missing = pre-versioning worker (older than 2026-07 group review) */
+  proto?: number
   name: string
   host: string
   createdAt: number

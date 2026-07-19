@@ -311,7 +311,9 @@ export class PawRoom {
         members.push({ memberId: a.memberId, name: a.name });
       }
     }
-    const state = JSON.stringify({ type: "state", name: meta.name, host: meta.host, createdAt: meta.createdAt, members, decks, review });
+    // proto lets the app detect an out-of-date worker instead of failing silently
+    // (2 = deck re-share/unshare + group review)
+    const state = JSON.stringify({ type: "state", proto: 2, name: meta.name, host: meta.host, createdAt: meta.createdAt, members, decks, review });
     for (const ws of sockets) {
       try { ws.send(state); } catch { /* closing socket — presence updates on its close event */ }
     }

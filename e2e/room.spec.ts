@@ -32,6 +32,7 @@ function broadcast() {
   for (const c of room.conns) if (!members.some((m) => m.memberId === c.memberId)) members.push({ memberId: c.memberId, name: c.name })
   const state = JSON.stringify({
     type: 'state',
+    proto: 2,
     ...(room.meta ?? { name: '?', host: '?', createdAt: 0 }),
     members,
     decks: room.decks,
@@ -129,6 +130,21 @@ test('unreachable room (old worker / offline) → clear error, keeps retrying', 
   await page.getByTestId('room-name').fill('Doomed')
   await page.getByTestId('room-create-go').click()
   await expect(page.getByTestId('room-error')).toBeVisible({ timeout: 15_000 })
+})
+
+test('stale worker (no proto in state) → visible warning instead of silent failure', async ({ page }) => {
+  // a pre-group-review DO broadcasts state without `proto`
+  await page.routeWebSocket(/\/room\//, (ws) => {
+    ws.send(JSON.stringify({ type: 'state', name: 'Old Room', host: 'Khaan', createdAt: 1, members: [], decks: [] }))
+  })
+  await resetApp(page, { syncUrl: WORKER + '/?key=pw', syncId: 'paw-e2e-room-proto', nickname: 'Khaan' })
+  await page.evaluate(() => {
+    const w = window as any
+    w.__store.getState().addRoomRef({ code: 'room-old-proto', url: 'https://pawroom.test.workers.dev/?key=pw', name: 'Old Room', memberId: 'm1', joinedAt: Date.now() })
+    w.__store.getState().openRoom('room-old-proto')
+  })
+  await expect(page.getByTestId('room-proto-warning')).toBeVisible({ timeout: 5000 })
+  await expect(page.getByTestId('room-proto-warning')).toContainText('redeploys')
 })
 
 test('group review: host drives, guest follows live, grading imports implicitly', async ({ browser }) => {
