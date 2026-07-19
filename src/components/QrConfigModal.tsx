@@ -5,6 +5,8 @@ import { encodeConfig, parseConfig, type ConfigPayload } from '../lib/qrconfig'
 
 interface Props {
   mode: 'show' | 'scan'
+  /** show mode: 'device' = full config, 'friend' = Sync ID already blanked by the caller */
+  variant?: 'device' | 'friend'
   /** current form values (show mode encodes these, incl. unsaved edits) */
   config: ConfigPayload
   onApply: (cfg: ConfigPayload) => void
@@ -20,7 +22,7 @@ const host = (url: string) => {
   }
 }
 
-export default function QrConfigModal({ mode, config, onApply, onClose }: Props) {
+export default function QrConfigModal({ mode, variant = 'device', config, onApply, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const [error, setError] = useState('')
@@ -99,10 +101,22 @@ export default function QrConfigModal({ mode, config, onApply, onClose }: Props)
       >
         {mode === 'show' && (
           <>
-            <h2 className="m-0 mb-1 text-[17px] font-bold">▦ Settings QR</h2>
+            <h2 className="m-0 mb-1 text-[17px] font-bold">
+              {variant === 'friend' ? '🤝 Settings QR for a friend' : '▦ Settings QR'}
+            </h2>
             <p className="hint mb-3.5">
-              On your other device open PawCards → Settings → <b>📷 Scan settings QR</b> and point it here. This code
-              contains your API key and Sync ID — don't show it to anyone else.
+              {variant === 'friend' ? (
+                <>
+                  On their device: open PawCards → Settings → <b>📷 Scan settings QR</b>. Your Sync ID is left out, so
+                  their cards stay separate from yours — but the code still contains your API key / worker URL, so only
+                  share with someone you trust.
+                </>
+              ) : (
+                <>
+                  On your other device open PawCards → Settings → <b>📷 Scan settings QR</b> and point it here. This
+                  code contains your API key and Sync ID — don't show it to anyone else.
+                </>
+              )}
             </p>
             <div className="flex justify-center">
               <canvas ref={canvasRef} className="rounded-lg" data-testid="qr-canvas" />

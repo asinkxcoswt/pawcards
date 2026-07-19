@@ -23,6 +23,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   )
   const [syncId, setSyncId] = useState(settings.syncId)
   const [qrMode, setQrMode] = useState<'show' | 'scan' | null>(null)
+  const [qrShare, setQrShare] = useState<'device' | 'friend'>('device')
+  const [qrMenu, setQrMenu] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const applyScanned = (cfg: ConfigPayload) => {
@@ -195,9 +197,52 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           The code includes your API key and Sync ID — only show it to your own devices.
         </p>
         <div className="flex gap-2.5">
-          <button className="btn" data-testid="qr-show" onClick={() => setQrMode('show')}>
-            ▦ Show settings QR
-          </button>
+          <div className="relative inline-flex">
+            <button
+              className="btn rounded-r-none"
+              data-testid="qr-show"
+              onClick={() => {
+                setQrShare('device')
+                setQrMode('show')
+              }}
+            >
+              ▦ Show settings QR
+            </button>
+            <button
+              className="btn -ml-px rounded-l-none px-2"
+              data-testid="qr-show-menu"
+              aria-label="Sharing options"
+              onClick={() => setQrMenu((v) => !v)}
+            >
+              ▾
+            </button>
+            {qrMenu && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setQrMenu(false)} />
+                <div className="absolute left-0 top-full z-20 mt-1 w-max rounded-xl border border-line bg-panel p-1 shadow-soft">
+                  {(
+                    [
+                      ['device', '📲 Share for your device', 'qr-share-device'],
+                      ['friend', '🤝 Share with friend (no Sync ID)', 'qr-share-friend'],
+                    ] as const
+                  ).map(([kind, label, tid]) => (
+                    <button
+                      key={kind}
+                      className="block w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-paper"
+                      data-testid={tid}
+                      onClick={() => {
+                        setQrMenu(false)
+                        setQrShare(kind)
+                        setQrMode('show')
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
           <button className="btn" data-testid="qr-scan" onClick={() => setQrMode('scan')}>
             📷 Scan settings QR
           </button>
@@ -236,6 +281,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       {qrMode && (
         <QrConfigModal
           mode={qrMode}
+          variant={qrShare}
           config={{
             provider,
             apiKey: apiKey.trim(),
@@ -243,7 +289,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             model: model.trim() || providerDefaults(provider).model,
             prompt: prompt.trim() || defaultSettings().prompt,
             syncUrl: syncUrl.trim(),
-            syncId: syncId.trim(),
+            syncId: qrShare === 'friend' ? '' : syncId.trim(),
           }}
           onApply={applyScanned}
           onClose={() => setQrMode(null)}
