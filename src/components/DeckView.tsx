@@ -21,78 +21,107 @@ export default function DeckView() {
   const startReview = useStore((s) => s.startReview)
   const startCram = useStore((s) => s.startCram)
   const showToast = useStore((s) => s.showToast)
+  const toggleCardPrivate = useStore((s) => s.toggleCardPrivate)
   const settings = useStore((s) => s.settings)
   const [renaming, setRenaming] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [selecting, setSelecting] = useState(false)
 
   if (!deck) return null
   const due = dueCards(cards, null).length
   const sorted = [...cards].sort((a, b) => b.created - a.created)
+  const privateCount = cards.filter((c) => c.private).length
 
   return (
     <section className="flex h-dvh flex-col overflow-hidden">
-      <header className="flex items-center gap-2.5 px-4 pb-2.5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}>
-        <button className="iconbtn" onClick={() => go('home')}>
-          ‹
-        </button>
-        <h1 className="m-0 flex-1 truncate text-[19px] font-bold tracking-tight">
-          {deck.name}
-          {deck.sharedBy && <span className="ml-2 text-[12px] font-semibold text-muted">🤝 {deck.sharedBy}</span>}
-        </h1>
-        <button
-          className="iconbtn"
-          title="Share this deck with friends"
-          data-testid="share-deck"
-          onClick={() => {
-            if (!cards.length) {
-              showToast('Nothing to share yet — add a card first')
-              return
-            }
-            if (!syncConfigured(settings)) {
-              showToast('Set up your Worker in Settings → Cloud sync first')
-              return
-            }
-            setSharing(true)
-          }}
-        >
-          🤝
-        </button>
-        <button className="iconbtn" title="Rename" onClick={() => setRenaming(true)}>
-          ✎
-        </button>
-        <ConfirmButton className="iconbtn" label="🗑" title="Delete deck" onConfirm={() => deleteDeck(deckId)} toastMsg="Tap again to confirm delete" />
-      </header>
-
-      <main className="flex-1 overflow-y-auto px-4 pt-1" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}>
-        <div className="my-3.5 flex gap-2.5">
-          <button className="btn btn-primary" onClick={() => newCard()}>
-            ＋ New card
+      {selecting ? (
+        <header className="flex items-center gap-2.5 px-4 pb-2.5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}>
+          <h1 className="m-0 flex-1 truncate text-[17px] font-bold tracking-tight">🔒 Choose private cards</h1>
+          <button className="btn btn-primary" data-testid="select-done" onClick={() => setSelecting(false)}>
+            ✓ Done
           </button>
-          <button className="btn" disabled={!due} onClick={() => startReview(deckId)}>
-            {due ? `Review (${due})` : 'Nothing due'}
+        </header>
+      ) : (
+        <header className="flex items-center gap-2.5 px-4 pb-2.5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}>
+          <button className="iconbtn" onClick={() => go('home')}>
+            ‹
           </button>
+          <h1 className="m-0 flex-1 truncate text-[19px] font-bold tracking-tight">
+            {deck.name}
+            {deck.sharedBy && <span className="ml-2 text-[12px] font-semibold text-muted">🤝 {deck.sharedBy}</span>}
+          </h1>
+          {!deck.sharedBy && cards.length > 0 && (
+            <button className="iconbtn" title="Choose which cards to keep private" data-testid="select-mode" onClick={() => setSelecting(true)}>
+              🔒
+            </button>
+          )}
           <button
-            className="btn btn-ghost"
+            className="iconbtn"
+            title="Share this deck with friends"
+            data-testid="share-deck"
             onClick={() => {
-              if (!startCram(deckId)) showToast('No cards in this deck yet')
+              if (!cards.length) {
+                showToast('Nothing to share yet — add a card first')
+                return
+              }
+              if (!syncConfigured(settings)) {
+                showToast('Set up your Worker in Settings → Cloud sync first')
+                return
+              }
+              setSharing(true)
             }}
           >
-            Shuffle all
+            🤝
           </button>
-        </div>
+          <button className="iconbtn" title="Rename" onClick={() => setRenaming(true)}>
+            ✎
+          </button>
+          <ConfirmButton className="iconbtn" label="🗑" title="Delete deck" onConfirm={() => deleteDeck(deckId)} toastMsg="Tap again to confirm delete" />
+        </header>
+      )}
+
+      <main className="flex-1 overflow-y-auto px-4 pt-1" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}>
+        {selecting ? (
+          <div className="my-3.5 rounded-xl bg-accentsoft px-3.5 py-2.5 text-[13px] font-semibold text-ink">
+            Tap cards to keep them 🔒 private — they stay yours but are left out of every share.
+            {privateCount > 0 && <span className="font-normal text-muted"> · {privateCount} private</span>}
+          </div>
+        ) : (
+          <div className="my-3.5 flex gap-2.5">
+            <button className="btn btn-primary" onClick={() => newCard()}>
+              ＋ New card
+            </button>
+            <button className="btn" disabled={!due} onClick={() => startReview(deckId)}>
+              {due ? `Review (${due})` : 'Nothing due'}
+            </button>
+            <button
+              className="btn btn-ghost"
+              onClick={() => {
+                if (!startCram(deckId)) showToast('No cards in this deck yet')
+              }}
+            >
+              Shuffle all
+            </button>
+          </div>
+        )}
 
         <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
           {sorted.length === 0 && <div className="col-span-full py-12 text-center text-sm text-muted">No cards yet — draw your first one!</div>}
           {sorted.map((c) => (
             <button
               key={c.id}
-              className="relative overflow-hidden rounded-xl border border-line bg-panel text-left shadow-soft"
-              onClick={() => openCard(c.id)}
+              className={
+                'relative overflow-hidden rounded-xl border bg-panel text-left shadow-soft transition ' +
+                (c.private ? 'border-accent opacity-60' : 'border-line')
+              }
+              data-testid={(selecting ? 'select-card-' : 'card-') + c.id}
+              onClick={() => (selecting ? toggleCardPrivate(c.id) : openCard(c.id))}
             >
               <CardThumb card={c} />
               <span className="absolute bottom-1.5 right-2 rounded-full bg-white/85 px-1.5 py-0.5 text-[10px] font-bold text-muted">
                 {!c.srs ? 'new' : c.srs.retired ? '✓ done' : isDue(c) ? 'due' : 'in ' + fmtIv(c.srs.due - now())}
               </span>
+              {c.private && <span className="absolute left-2 top-1.5 rounded-full bg-white/85 px-1.5 py-0.5 text-[11px]" data-testid={'private-badge-' + c.id}>🔒</span>}
               {c.polished.front && <span className="absolute right-2 top-1.5 text-[11px]">✨</span>}
             </button>
           ))}

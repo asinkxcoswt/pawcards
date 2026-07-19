@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { useStore } from '../store'
-import { encodeShareQr, uploadDeckShare, type DeckShareQr } from '../lib/share'
+import { encodeShareQr, shareableCards, uploadDeckShare, type DeckShareQr } from '../lib/share'
 
 /**
  * Share one deck with friends: uploads the deck (incl. images) to the user's
@@ -24,7 +24,7 @@ export default function ShareDeckModal({ deckId, onClose }: { deckId: string; on
     setPhase('uploading')
     setError('')
     try {
-      const cards = useStore.getState().cards.filter((c) => c.deckId === deckId)
+      const cards = shareableCards(useStore.getState().cards, deckId)
       const payload = await uploadDeckShare(settings.syncUrl, by, deck!, cards)
       setQr(payload)
       setPhase('qr')
@@ -52,7 +52,9 @@ export default function ShareDeckModal({ deckId, onClose }: { deckId: string; on
   }, [phase, qr])
 
   if (!deck) return null
-  const count = allCards.filter((c) => c.deckId === deckId).length
+  const deckCards = allCards.filter((c) => c.deckId === deckId)
+  const count = shareableCards(allCards, deckId).length
+  const heldBack = deckCards.length - count
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-[rgba(30,25,18,.4)]" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -60,7 +62,15 @@ export default function ShareDeckModal({ deckId, onClose }: { deckId: string; on
         {phase === 'name' && (
           <>
             <h2 className="m-0 mb-1 text-[17px] font-bold">🤝 Share “{deck.name}”</h2>
-            <p className="hint mb-3.5">What name should friends see on this deck?</p>
+            <p className="hint mb-3.5">
+              What name should friends see on this deck?
+              {heldBack > 0 && (
+                <>
+                  <br />
+                  Sharing {count} of {deckCards.length} cards — {heldBack} kept private 🔒.
+                </>
+              )}
+            </p>
             <input
               className="field-input"
               autoFocus
@@ -101,6 +111,14 @@ export default function ShareDeckModal({ deckId, onClose }: { deckId: string; on
           <>
             <h2 className="m-0 mb-1 text-[17px] font-bold">🤝 “{deck.name}” is ready to share</h2>
             <p className="hint mb-3.5">
+              {heldBack > 0 && (
+                <>
+                  <b>
+                    Sharing {count} of {deckCards.length} cards — {heldBack} kept private 🔒.
+                  </b>
+                  <br />
+                </>
+              )}
               Friends: open PawCards → tap 🤝 on the home screen → scan this code. The link expires after 60 days.
               Anyone with this code can also use your Worker, so share it within your group only.
             </p>

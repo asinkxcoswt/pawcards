@@ -44,6 +44,8 @@ interface Actions {
   setFront: (id: string, strokes: Card['front']) => void
   setBackground: (id: string, dataUrl: string) => void
   clearBackground: (id: string) => void
+  /** flip a card's "keep private / don't share" flag */
+  toggleCardPrivate: (id: string) => void
 
   // AI generation; customSubject overrides the backText-derived subject
   requestPolish: (id: string, customSubject?: string) => 'queued' | 'no-answer' | 'no-key' | 'busy'
@@ -220,6 +222,7 @@ export const useStore = create<Store>((set, get) => {
         delete polished.front
         return touch({ ...c, polished })
       }),
+    toggleCardPrivate: (id) => patchCard(id, (c) => touch({ ...c, private: !c.private })),
 
     /* ---------- AI generation (async queue, one job per card) ---------- */
     requestPolish: (id, customSubject) => {

@@ -33,6 +33,8 @@ export interface Card {
   backText: string
   /** last AI-generation subject (derived from backText) */
   subject?: string
+  /** kept out of every share (deck QR + rooms); still yours to review */
+  private?: boolean
   srs: Srs | null
   /** polished.front = AI-generated (or imported) background image dataURL */
   polished: { front?: string; back?: string }

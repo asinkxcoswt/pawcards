@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { useStore } from '../store'
 import { encodeRoomQr, fetchRoomDeck, ROOM_PROTO, shareDeckToRoom, unshareDeckFromRoom, useRoom, type RoomDeckMeta } from '../lib/room'
-import type { ShareDoc } from '../lib/share'
+import { shareableCards, type ShareDoc } from '../lib/share'
 import ConfirmButton from './ConfirmButton'
 import RoomReview from './RoomReview'
 
@@ -68,9 +68,10 @@ export default function RoomView() {
     setPicking(false)
     setBusyDeck(deckId)
     try {
-      const cards = useStore.getState().cards.filter((c) => c.deckId === deckId)
+      const cards = shareableCards(useStore.getState().cards, deckId)
       await shareDeckToRoom(ref.url, settings.nickname || 'me', deck, cards, send)
-      showToast(`🤝 “${deck.name}” shared into the room`)
+      const held = useStore.getState().cards.filter((c) => c.deckId === deckId && c.private).length
+      showToast(`🤝 “${deck.name}” shared into the room` + (held ? ` (${held} kept private 🔒)` : ''))
     } catch (e) {
       showToast('Share failed: ' + (e as Error).message)
     } finally {

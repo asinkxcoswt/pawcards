@@ -91,3 +91,39 @@ test('share a deck via QR; a friend imports it with the 🤝 tag', async ({ brow
   }, stored)
   expect(await store<number>(B, 's => s.cards.length')).toBe(1)
 })
+
+test('selection mode marks a card private; it is left out of the share', async ({ browser }) => {
+  kv.clear()
+  const A = await (await browser.newContext()).newPage()
+  await wire(A)
+  await resetApp(A, { syncUrl: WORKER + '/?key=pw', syncId: 'paw-e2e-share-2', nickname: 'Khaan' })
+  await createDeckAndCard(A, 'Notes', 'public fact')
+  await A.getByText('‹').click() // → deck view
+  const deckId = await store<string>(A, 's => s.decks[0].id')
+  // add a second card that we'll keep private
+  await A.evaluate((deckId) => {
+    const w = window as any
+    const t = Date.now()
+    w.__store.setState({
+      cards: [...w.__store.getState().cards, { id: 'secret', deckId, created: t, updated: t, front: [], back: [], backText: 'my private note', srs: null, polished: {} }],
+    })
+  }, deckId)
+
+  // enter selection mode, lock the secret card, leave
+  await A.getByTestId('select-mode').click()
+  await A.getByTestId('select-card-secret').click()
+  await expect(A.getByTestId('private-badge-secret')).toBeVisible()
+  await A.getByTestId('select-done').click()
+  // the flag persisted with a touch (sync-safe)
+  expect(await store<boolean>(A, "s => !!s.cards.find(c => c.id === 'secret').private")).toBe(true)
+  expect(await store<boolean>(A, "s => !!s.cards.find(c => c.id === 'secret').updated")).toBe(true)
+
+  // share — the modal reports 1 of 2, and only the public card lands in KV
+  await A.getByTestId('share-deck').click()
+  await expect(A.locator('.hint')).toContainText('1 kept private')
+  const qr = parseShareQr(await decodeCanvas(A, 'share-qr-canvas'))
+  expect(qr.count).toBe(1)
+  const stored = JSON.parse(kv.get(qr.id)!).doc as ShareDoc
+  expect(stored.cards.map((c) => c.id)).toEqual([await store<string>(A, "s => s.cards.find(c => !c.private).id")])
+  expect(stored.cards.some((c) => c.id === 'secret')).toBe(false)
+})

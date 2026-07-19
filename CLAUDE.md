@@ -41,7 +41,8 @@ src/
   lib/canvas.ts       stroke render, bg-image cover draw, Thai-aware canvas text (thumbs only)
   lib/qrconfig.ts     encode/parse the settings-transfer QR payload (AI + sync config)
   lib/share.ts        deck sharing: deck uploads to KV (share-… id, images incl.),
-                      QR carries only the pointer {url, id, name, by, count}
+                      QR carries only the pointer {url, id, name, by, count};
+                      shareableCards() drops card.private (🔒) from every share
   lib/room.ts         workshop rooms: PawRoom Durable Object on the CREATOR's
                       worker (wss://…/room/<code>), one DO per room, pushes full
                       state on every change (useRoom hook, auto-reconnect).

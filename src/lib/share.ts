@@ -26,6 +26,11 @@ export interface ShareDoc {
   at: number
 }
 
+/** cards of a deck that actually go into a share — private ones are held back */
+export function shareableCards(cards: Card[], deckId: string): Card[] {
+  return cards.filter((c) => c.deckId === deckId && !c.private)
+}
+
 const MAGIC = 'pawcards-share'
 
 export function newShareId(): string {
