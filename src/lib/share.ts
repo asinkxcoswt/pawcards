@@ -88,14 +88,19 @@ export async function kvList(syncUrl: string, prefix: string): Promise<string[]>
   const u = new URL(syncUrl)
   const key = u.searchParams.get('key') ?? ''
   const rsp = await fetch(u.origin + '/sync?key=' + encodeURIComponent(key) + '&list=' + encodeURIComponent(prefix))
+  // an old worker ignores ?list= and 400s with "sync id missing or too short"
+  if (rsp.status === 400) throw new Error(WORKER_NEEDS_UPDATE)
   if (!rsp.ok) {
     const e = await rsp.json().catch(() => ({}) as { error?: string })
     throw new Error(e.error ?? 'HTTP ' + rsp.status)
   }
   const body = (await rsp.json()) as { ids?: string[] }
-  if (!Array.isArray(body.ids)) throw new Error("This worker doesn't support rooms yet — update it from the repo")
+  if (!Array.isArray(body.ids)) throw new Error(WORKER_NEEDS_UPDATE)
   return body.ids
 }
+
+export const WORKER_NEEDS_UPDATE =
+  "This room's worker is running an older version without room support — deploy the updated worker/pawcards-worker.js, then tap ↻"
 
 export async function kvGet(syncUrl: string, id: string): Promise<unknown> {
   const rsp = await fetch(syncEndpoint(syncUrl, id))

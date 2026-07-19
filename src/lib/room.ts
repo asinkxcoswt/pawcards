@@ -68,6 +68,8 @@ export function parseRoomQr(text: string): RoomQr {
 
 export async function createRoom(url: string, name: string, host: string): Promise<string> {
   const code = newRoomCode()
+  // probe ?list= first: on an old worker, fail BEFORE creating a broken room
+  await kvList(url, code + '-member-')
   const doc: RoomDoc = { name, host, createdAt: Date.now() }
   await kvPut(url, code, doc)
   return code

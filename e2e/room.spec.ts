@@ -47,6 +47,26 @@ async function decodeCanvas(page: Page, testId: string) {
   return code!.data
 }
 
+test('old worker (no ?list=) → clear "update your worker" error before a room is created', async ({ page }) => {
+  // simulate the pre-update worker: ?list= is ignored, id check 400s
+  await page.route(WORKER + '/**', (route) => {
+    const u = new URL(route.request().url())
+    if (u.pathname === '/sync' && !u.searchParams.get('id')) {
+      route.fulfill({ status: 400, contentType: 'application/json', body: '{"error":"sync id missing or too short"}' })
+      return
+    }
+    route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"updatedAt":1}' })
+  })
+  await resetApp(page, { syncUrl: WORKER + '/?key=pw', syncId: 'paw-e2e-room-old' })
+  await page.getByTestId('room-create').click()
+  await page.getByTestId('room-name').fill('Doomed')
+  await page.getByTestId('room-nickname').fill('Khaan')
+  await page.getByTestId('room-create-go').click()
+  await expect(page.getByText(/older version without room support/)).toBeVisible()
+  // still on home, no broken room ref was saved
+  expect(await store<number>(page, 's => s.rooms.length')).toBe(0)
+})
+
 test('room: create, share a deck in, friend joins + imports, revisit and leave', async ({ browser }) => {
   kv.clear()
 
