@@ -252,9 +252,12 @@ test('group review: host picks a card count, app draws that many at random', asy
   await A.getByTestId('pick-deck-' + deckId).click()
   await expect(A.getByTestId('room-deck-' + deckId)).toContainText('4 cards', { timeout: 5000 })
 
-  // host asks for just 2 of the 4 shared cards
+  // host asks for just 2 of the 4 shared cards (default is 4 → step down twice)
   await A.getByTestId('room-review-start').click()
-  await A.getByTestId('rr-count-input').fill('2')
+  await expect(A.getByTestId('rr-count-value')).toHaveText('4')
+  await A.getByTestId('rr-count-dec').click()
+  await A.getByTestId('rr-count-dec').click()
+  await expect(A.getByTestId('rr-count-value')).toHaveText('2')
   await A.getByTestId('rr-start-go').click()
   await expect(A.getByTestId('rr-progress')).toHaveText('1 / 2', { timeout: 5000 })
   // the choice is remembered for next time

@@ -275,33 +275,49 @@ export default function RoomView() {
               deck{decks.length === 1 ? '' : 's'}. Everyone follows your lead; grading stays private.
             </p>
             <label className="field-label">How many cards?</label>
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              {[10, 20, 50].filter((n) => n < totalShared).map((n) => (
+            <div className="mb-4 rounded-xl border border-line bg-paper p-4">
+              <div className="mb-3 text-center">
+                <span className="text-[32px] font-extrabold leading-none text-ink" data-testid="rr-count-value">
+                  {count}
+                </span>
+                <span className="ml-1.5 text-sm text-muted">of {totalShared} cards</span>
+              </div>
+              <div className="flex items-center gap-3">
                 <button
-                  key={n}
-                  className={'btn ' + (count === n ? 'btn-primary' : '')}
-                  data-testid={'rr-count-' + n}
-                  onClick={() => setCount(n)}
+                  className="iconbtn shrink-0 text-lg"
+                  data-testid="rr-count-dec"
+                  aria-label="One fewer"
+                  onClick={() => setCount((c) => Math.max(1, c - 1))}
                 >
-                  {n}
+                  <Icon name="minus" size={18} strokeWidth={2.4} />
                 </button>
-              ))}
+                <input
+                  className="h-2 flex-1 cursor-pointer"
+                  style={{ accentColor: 'var(--color-accent)' }}
+                  type="range"
+                  min={1}
+                  max={totalShared}
+                  step={1}
+                  value={count}
+                  data-testid="rr-count-input"
+                  onChange={(e) => setCount(parseInt(e.target.value, 10) || 1)}
+                />
+                <button
+                  className="iconbtn shrink-0 text-lg"
+                  data-testid="rr-count-inc"
+                  aria-label="One more"
+                  onClick={() => setCount((c) => Math.min(totalShared, c + 1))}
+                >
+                  <Icon name="plus" size={18} strokeWidth={2.4} />
+                </button>
+              </div>
               <button
-                className={'btn ' + (count >= totalShared ? 'btn-primary' : '')}
+                className={'btn mt-3 w-full justify-center ' + (count >= totalShared ? 'btn-primary' : '')}
                 data-testid="rr-count-all"
                 onClick={() => setCount(totalShared)}
               >
-                All ({totalShared})
+                All {totalShared} cards
               </button>
-              <input
-                className="field-input w-24"
-                type="number"
-                min={1}
-                max={totalShared}
-                value={count}
-                data-testid="rr-count-input"
-                onChange={(e) => setCount(Math.max(1, Math.min(totalShared, parseInt(e.target.value, 10) || 1)))}
-              />
             </div>
             <div className="flex gap-2.5">
               <button className="btn btn-accent" data-testid="rr-start-go" disabled={starting} onClick={() => void startGroupReview()}>
