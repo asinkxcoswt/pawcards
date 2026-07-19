@@ -326,7 +326,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           <label className="field-label">Your nickname</label>
           <input
             className="field-input"
-            placeholder="e.g. Khaan"
+            placeholder="e.g. John"
             maxLength={24}
             value={nickname}
             data-testid="nickname-input"
