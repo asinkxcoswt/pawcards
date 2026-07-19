@@ -23,6 +23,9 @@ export default function Editor() {
   const [hlColor, setHlColor] = useState(HL_COLORS[0])
   const [sizeIdx, setSizeIdx] = useState(1)
   const [attn, setAttn] = useState(false)
+  const [genMenu, setGenMenu] = useState(false)
+  const [customOpen, setCustomOpen] = useState(false)
+  const [customPrompt, setCustomPrompt] = useState('')
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const groupRef = useRef<HTMLDivElement>(null)
@@ -203,8 +206,8 @@ export default function Editor() {
   }
 
   /* ---------- generation / import / export ---------- */
-  const generate = () => {
-    const res = requestPolish(cardId)
+  const generate = (customSubject?: string) => {
+    const res = requestPolish(cardId, customSubject)
     if (res === 'no-key') {
       showToast('Add an API key first')
     } else if (res === 'no-answer') {
@@ -215,8 +218,21 @@ export default function Editor() {
     } else if (res === 'busy') {
       showToast('Already creating for this card…')
     } else {
-      showToast('✨ Creating an image from your answer — you can keep working')
+      showToast(`✨ Creating an image from your ${customSubject ? 'prompt' : 'answer'} — you can keep working`)
     }
+  }
+  const openCustomPrompt = () => {
+    setCustomPrompt(card?.subject ?? '')
+    setCustomOpen(true)
+  }
+  const generateCustom = () => {
+    const p = customPrompt.trim()
+    if (!p) {
+      showToast('Describe the image first 🐾')
+      return
+    }
+    setCustomOpen(false)
+    generate(p)
   }
   const importImage = (input: HTMLInputElement) => {
     const f = input.files?.[0]
@@ -262,9 +278,45 @@ export default function Editor() {
           ‹
         </button>
         <div className="flex-1" />
-        <button className="btn" onClick={generate}>
-          ✨ Generate
-        </button>
+        <div className="relative inline-flex">
+          <button className="btn rounded-r-none" onClick={() => generate()}>
+            ✨ Generate
+          </button>
+          <button
+            className="btn -ml-px rounded-l-none px-2"
+            data-testid="gen-menu"
+            aria-label="Generate options"
+            onClick={() => setGenMenu((v) => !v)}
+          >
+            ▾
+          </button>
+          {genMenu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setGenMenu(false)} />
+              <div className="absolute right-0 top-full z-20 mt-1 w-max rounded-xl border border-line bg-panel p-1 shadow-soft">
+                <button
+                  className="block w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-paper"
+                  onClick={() => {
+                    setGenMenu(false)
+                    generate()
+                  }}
+                >
+                  ✨ From the answer
+                </button>
+                <button
+                  className="block w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-paper"
+                  data-testid="gen-custom"
+                  onClick={() => {
+                    setGenMenu(false)
+                    openCustomPrompt()
+                  }}
+                >
+                  ✍️ With a custom prompt…
+                </button>
+              </div>
+            </>
+          )}
+        </div>
         <ConfirmButton className="iconbtn text-again" label="🗑" title="Delete card" onConfirm={() => deleteCard(cardId)} toastMsg="Tap again to confirm delete" />
       </div>
 
@@ -367,6 +419,36 @@ export default function Editor() {
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => importImage(e.target)} />
         </div>
       </div>
+
+      {customOpen && (
+        <div
+          className="fixed inset-0 z-40 flex items-end justify-center bg-[rgba(30,25,18,.4)]"
+          onClick={(e) => e.target === e.currentTarget && setCustomOpen(false)}
+        >
+          <div className="w-full max-w-[560px] rounded-t-[20px] bg-panel p-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
+            <h2 className="m-0 mb-1 text-[17px] font-bold">✍️ Describe the image</h2>
+            <p className="hint mb-3.5">
+              I'll draw this instead of the answer. Your polish style from Settings still applies.
+            </p>
+            <textarea
+              className="field-input min-h-20 resize-y"
+              autoFocus
+              placeholder="e.g. a water drop squeezing through a brick wall"
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              data-testid="custom-prompt-input"
+            />
+            <div className="mt-3.5 flex gap-2.5">
+              <button className="btn btn-primary" data-testid="custom-prompt-go" onClick={generateCustom}>
+                ✨ Generate
+              </button>
+              <button className="btn btn-ghost" onClick={() => setCustomOpen(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

@@ -43,8 +43,8 @@ interface Actions {
   setBackground: (id: string, dataUrl: string) => void
   clearBackground: (id: string) => void
 
-  // AI generation
-  requestPolish: (id: string) => 'queued' | 'no-answer' | 'no-key' | 'busy'
+  // AI generation; customSubject overrides the backText-derived subject
+  requestPolish: (id: string, customSubject?: string) => 'queued' | 'no-answer' | 'no-key' | 'busy'
 
   // review
   startReview: (deckId: string | null) => boolean
@@ -208,12 +208,12 @@ export const useStore = create<Store>((set, get) => {
       }),
 
     /* ---------- AI generation (async queue, one job per card) ---------- */
-    requestPolish: (id) => {
+    requestPolish: (id, customSubject) => {
       const s = get()
       const c = s.cards.find((x) => x.id === id)
       if (!c) return 'busy'
       if (s.settings.provider !== 'local' && !s.settings.apiKey) return 'no-key'
-      const answer = c.backText.trim()
+      const answer = (customSubject ?? c.backText).trim()
       if (!answer) return 'no-answer'
       if (s.polishJobs.some((j) => j.cardId === id)) return 'busy'
       const subject = answer.replace(/\s+/g, ' ').slice(0, 160)

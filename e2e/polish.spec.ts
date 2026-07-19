@@ -64,6 +64,26 @@ test('✨ generates from the answer; ink survives on top; ✕ image clears bg on
   expect(await store<number>(page, 's => s.cards[0].front.length')).toBe(before + 1)
 })
 
+test('combo menu → custom prompt generates from the typed text, not the answer', async ({ page }) => {
+  await createDeckAndCard(page, 'X', 'the real answer')
+  await page.getByTestId('gen-menu').click()
+  await page.getByTestId('gen-custom').click()
+
+  // empty prompt is rejected before any API call
+  await page.getByTestId('custom-prompt-input').fill('')
+  await page.getByTestId('custom-prompt-go').click()
+  await expect(page.locator('#toast')).toContainText('Describe the image first')
+
+  await page.getByTestId('custom-prompt-input').fill('a red panda juggling teacups')
+  await page.getByTestId('custom-prompt-go').click()
+  await expect(page.locator('#toast')).toContainText('Image ready', { timeout: 5000 })
+  const prompt = lastPolishBody.prompt ?? ''
+  expect(prompt.startsWith('a red panda juggling teacups')).toBe(true)
+  expect(prompt).not.toContain('the real answer')
+  // the custom subject is remembered on the card (prefills the next custom prompt)
+  expect(await store<string>(page, 's => s.cards[0].subject')).toBe('a red panda juggling teacups')
+})
+
 test('regenerating replaces the background without touching ink', async ({ page }) => {
   await createDeckAndCard(page, 'X', 'an answer')
   await page.getByText('✨ Generate').click()
