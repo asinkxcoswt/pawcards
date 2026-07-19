@@ -14,7 +14,7 @@ export function defaultSettings(): Settings {
     model: 'gemini-2.5-flash-image',
     strength: 0.55,
     prompt:
-      'cute flat sticker art, one single centered subject, thick smooth outlines, soft pastel colors, plain white background, minimalist, high quality',
+      'spiritual illustration, abstract, drawing, high qualiity',
     syncUrl: '',
     syncId: newSyncId(),
     lastSyncAt: 0,
