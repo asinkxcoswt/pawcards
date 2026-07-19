@@ -42,10 +42,12 @@ src/
   lib/qrconfig.ts     encode/parse the settings-transfer QR payload (AI + sync config)
   lib/share.ts        deck sharing: deck uploads to KV (share-… id, images incl.),
                       QR carries only the pointer {url, id, name, by, count}
-  lib/room.ts         workshop rooms in KV on the CREATOR's worker: room-… doc,
-                      room-…-member-<id> and room-…-deck-<deckId> found via ?list=
-                      (separate keys so joins/shares never race on one doc; deck
-                      metas point at share-… payloads; re-share replaces by deckId)
+  lib/room.ts         workshop rooms: PawRoom Durable Object on the CREATOR's
+                      worker (wss://…/room/<code>), one DO per room, pushes full
+                      state on every change (useRoom hook, auto-reconnect).
+                      Deck payloads stay in KV (share-…); the DO holds pointers
+                      (RoomDeckMeta, keyed by deckId so re-share replaces).
+                      First connector names the room + becomes host.
   lib/useQrScan.ts    camera + jsQR decode loop hook (used by all scanners)
   components/         Home, DeckView, Editor (drawing engine), Review, SettingsModal,
                       DeckModal, CardThumb, ConfirmButton (tap-again pattern), Toast,
@@ -75,10 +77,15 @@ Endpoints (all CORS `*`; `?key=SECRET` gates everything):
   unused). **Thai in the prompt is auto-translated** span-by-span via
   `@cf/meta/m2m100-1.2b` so English style words survive.
 - `GET/PUT /sync?key=&id=SYNCID` — whole-doc sync storage in **KV** (binding
-  `SYNC`, 24MB guard). Stored value: `{doc, updatedAt}`. The endpoint is a
-  generic KV store: deck shares use ids `share-…` and (planned) rooms `room-…`
-  — those get a 60-day `expirationTtl`; personal sync docs never expire.
-  `GET /sync?key=&list=<prefix>` lists ids by prefix (for rooms).
+  `SYNC`, 24MB guard). Stored value: `{doc, updatedAt}`. KV holds exactly two
+  kinds of data: personal sync docs (never expire) and deck-share payloads
+  (`share-…`, 60-day `expirationTtl`).
+- `WS /room/<code>?key=&member=&name=&room=` — rooms, via the **PawRoom
+  Durable Object** (binding `ROOM`, SQLite-backed, free plan, WebSocket
+  hibernation). Presence = open sockets; state (meta + deck pointers) in DO
+  storage; alarm wipes a room 60d after last activity. Deploy REQUIRES the
+  wrangler.toml `[[durable_objects.bindings]]` + `[[migrations]]` blocks
+  (copy in `worker/wrangler.toml`) — without them: "ROOM binding missing".
 
 Free-tier notes: Workers AI = 10k neurons/day **per account** (not per worker);
 KV = 1k writes/day (sync is user-triggered or on open/hide, never on a timer).
@@ -105,10 +112,10 @@ Friends get their own Cloudflare account + worker URL rather than a shared one.
   apiUrl/model/prompt fields restore their defaults on blur. Settings changes
   don't mark the doc dirty (settings never sync).
 - **Rooms**: `Doc.rooms` (RoomRef: code/url/memberId) DOES sync — per-code
-  newest-wins union in mergeRemote; leaving tombstones the room code. Live room
-  content stays in KV on the room creator's worker and is fetched on open/↻
-  (no polling yet — that's the group-review phase). KV is eventually
-  consistent: same-PoP (in-person) reads land in ~1s, cross-region can lag.
+  newest-wins union in mergeRemote; leaving tombstones the room code. Live
+  room state is PUSHED over a WebSocket to the room's Durable Object (v3.2 —
+  replaced the KV ?list= polling design Khaan found confusing); create/join
+  are pure-local (RoomRef only), the room comes alive when RoomView connects.
 
 ## Hard-won lessons (do not re-learn these)
 

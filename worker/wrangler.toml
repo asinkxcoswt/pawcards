@@ -16,3 +16,17 @@ binding = "AI"
 # [[kv_namespaces]]
 # binding = "SYNC"
 # id = "PASTE_NAMESPACE_ID_HERE"
+
+# --- Rooms (Durable Object) ---
+# REQUIRED for the rooms feature: one PawRoom object per room holds the live
+# state (presence, shared-deck list) and pushes updates over WebSockets.
+# SQLite-backed Durable Objects are included in the FREE Workers plan.
+# Nothing to create in the dashboard — deploying with these blocks is enough.
+
+[[durable_objects.bindings]]
+name = "ROOM"
+class_name = "PawRoom"
+
+[[migrations]]
+tag = "v1-rooms"
+new_sqlite_classes = ["PawRoom"]

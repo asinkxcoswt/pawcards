@@ -74,6 +74,22 @@ export default {
     const url = new URL(request.url);
     const secret = (env && env.SECRET) || SECRET;
 
+    /* ---------- Rooms: WebSocket /room/<code>?key=&member=&name=&room= ---------- */
+    // Each room is one Durable Object (id = room code). It holds the live
+    // state (who's here, which decks are shared) and pushes every change to
+    // all connected phones — no polling. Deck payloads stay in KV (share-…).
+    if (url.pathname.startsWith("/room/")) {
+      if (secret && url.searchParams.get("key") !== secret) {
+        return json(403, { error: "wrong or missing ?key=" });
+      }
+      if (!env.ROOM) {
+        return json(500, { error: "ROOM binding missing — add the PawRoom Durable Object (see wrangler.toml)" });
+      }
+      const code = url.pathname.slice("/room/".length);
+      if (!/^room-[a-z0-9][a-z0-9-]{3,40}$/.test(code)) return json(400, { error: "bad room code" });
+      return env.ROOM.get(env.ROOM.idFromName(code)).fetch(request);
+    }
+
     /* ---------- Cloud sync: GET/PUT /sync?key=SECRET&id=SYNCID ---------- */
     if (url.pathname === "/sync") {
       if (secret && url.searchParams.get("key") !== secret) {
@@ -81,12 +97,6 @@ export default {
       }
       if (!env.SYNC) {
         return json(500, { error: "SYNC storage missing — create a KV namespace and bind it as SYNC (see wrangler.toml)" });
-      }
-      // list ids by prefix (used by deck-share rooms): GET /sync?key=…&list=room-xxxx-
-      const listPrefix = (url.searchParams.get("list") || "").trim();
-      if (request.method === "GET" && listPrefix.length >= 5) {
-        const r = await env.SYNC.list({ prefix: "doc:" + listPrefix, limit: 100 });
-        return json(200, { ids: r.keys.map((k) => k.name.slice(4)) });
       }
       const id = (url.searchParams.get("id") || "").trim();
       if (id.length < 8) return json(400, { error: "sync id missing or too short" });
@@ -104,9 +114,9 @@ export default {
         let body;
         try { body = JSON.parse(txt); } catch { return json(400, { error: "expected JSON body" }); }
         const updatedAt = Date.now();
-        // shared decks and rooms are temporary — expire them so workshop debris
-        // doesn't pile up in KV (personal sync docs never expire)
-        const ttl = /^(share|room)-/.test(id) ? { expirationTtl: 60 * 60 * 24 * 60 } : undefined;
+        // shared decks are temporary — expire them so workshop debris doesn't
+        // pile up in KV (personal sync docs never expire)
+        const ttl = /^share-/.test(id) ? { expirationTtl: 60 * 60 * 24 * 60 } : undefined;
         await env.SYNC.put(kvKey, JSON.stringify({ doc: body.doc || body, updatedAt }), ttl);
         return json(200, { ok: true, updatedAt });
       }
@@ -170,3 +180,89 @@ export default {
     }
   },
 };
+
+/* ═══════════════ PawRoom — one Durable Object per workshop room ═══════════════
+ *
+ * Uses the WebSocket Hibernation API (state.acceptWebSocket) so idle rooms
+ * cost nothing. Storage keys:
+ *   meta   {name, host, createdAt}        set by the first person to connect
+ *   decks  RoomDeckMeta[]                 pointers to share-… payloads in KV
+ * Members are NOT stored — presence = currently open sockets (attachment
+ * carries {memberId, name} and survives hibernation).
+ * An alarm wipes the room 60 days after the last activity.
+ */
+const ROOM_TTL_MS = 60 * 24 * 60 * 60 * 1000;
+
+export class PawRoom {
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+  }
+
+  async fetch(request) {
+    if (request.headers.get("Upgrade") !== "websocket") {
+      return json(426, { error: "expected a websocket connection" });
+    }
+    const url = new URL(request.url);
+    const memberId = (url.searchParams.get("member") || "").slice(0, 32) || "anon";
+    const name = (url.searchParams.get("name") || "?").slice(0, 24);
+    const roomName = (url.searchParams.get("room") || "Room").slice(0, 48);
+
+    // the first person to connect names the room and becomes its host
+    let meta = await this.state.storage.get("meta");
+    if (!meta) {
+      meta = { name: roomName, host: name, createdAt: Date.now() };
+      await this.state.storage.put("meta", meta);
+    }
+    await this.state.storage.setAlarm(Date.now() + ROOM_TTL_MS);
+
+    const pair = new WebSocketPair();
+    this.state.acceptWebSocket(pair[1]);
+    pair[1].serializeAttachment({ memberId, name });
+    await this.broadcast();
+    return new Response(null, { status: 101, webSocket: pair[0] });
+  }
+
+  async webSocketMessage(ws, msg) {
+    let m;
+    try { m = JSON.parse(msg); } catch { return; }
+    if (m.type === "share-deck" && m.meta && typeof m.meta.deckId === "string") {
+      const decks = (await this.state.storage.get("decks")) || [];
+      const i = decks.findIndex((d) => d.deckId === m.meta.deckId);
+      if (i >= 0) decks[i] = m.meta; else decks.push(m.meta);
+      await this.state.storage.put("decks", decks);
+      await this.state.storage.setAlarm(Date.now() + ROOM_TTL_MS);
+      await this.broadcast();
+    }
+  }
+
+  async webSocketClose() { await this.broadcast(); }
+  async webSocketError() { await this.broadcast(); }
+
+  async broadcast() {
+    const meta = (await this.state.storage.get("meta")) || {};
+    const decks = (await this.state.storage.get("decks")) || [];
+    const members = [];
+    const seen = new Set();
+    const sockets = this.state.getWebSockets();
+    for (const ws of sockets) {
+      let a;
+      try { a = ws.deserializeAttachment(); } catch { a = null; }
+      if (a && a.memberId && !seen.has(a.memberId)) {
+        seen.add(a.memberId);
+        members.push({ memberId: a.memberId, name: a.name });
+      }
+    }
+    const state = JSON.stringify({ type: "state", name: meta.name, host: meta.host, createdAt: meta.createdAt, members, decks });
+    for (const ws of sockets) {
+      try { ws.send(state); } catch { /* closing socket — presence updates on its close event */ }
+    }
+  }
+
+  async alarm() {
+    await this.state.storage.deleteAll();
+    for (const ws of this.state.getWebSockets()) {
+      try { ws.close(1000, "room expired"); } catch { /* already gone */ }
+    }
+  }
+}

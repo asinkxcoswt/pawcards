@@ -1,22 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { useStore } from '../store'
-import {
-  encodeRoomQr,
-  fetchMembers,
-  fetchRoom,
-  fetchRoomDeck,
-  fetchRoomDecks,
-  shareDeckToRoom,
-  type RoomDeckMeta,
-  type RoomMember,
-} from '../lib/room'
+import { encodeRoomQr, fetchRoomDeck, shareDeckToRoom, useRoom, type RoomDeckMeta } from '../lib/room'
 import ConfirmButton from './ConfirmButton'
 
 /**
- * Inside a room: members, everyone's shared decks (import what you like),
- * invite QR, share-your-deck picker. Content is fetched from the room
- * creator's worker; ↻ refreshes.
+ * Inside a room — live over a WebSocket to the room's Durable Object.
+ * Presence, shared decks, and (later) group review all push in real time;
+ * there is nothing to manually refresh.
  */
 export default function RoomView() {
   const code = useStore((s) => s.curRoomCode)!
@@ -25,38 +16,10 @@ export default function RoomView() {
   const settings = useStore((s) => s.settings)
   const { go, leaveRoom, importSharedDeck, showToast, openDeck } = useStore.getState()
 
-  const [host, setHost] = useState('')
-  const [members, setMembers] = useState<RoomMember[]>([])
-  const [decks, setDecks] = useState<RoomDeckMeta[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const { state, status, send } = useRoom(ref, settings.nickname)
   const [invite, setInvite] = useState(false)
   const [picking, setPicking] = useState(false)
   const [busyDeck, setBusyDeck] = useState('')
-
-  const load = useCallback(async () => {
-    if (!ref) return
-    setLoading(true)
-    setError('')
-    try {
-      const [room, mem, dks] = await Promise.all([
-        fetchRoom(ref.url, ref.code),
-        fetchMembers(ref.url, ref.code),
-        fetchRoomDecks(ref.url, ref.code),
-      ])
-      setHost(room.host)
-      setMembers(mem)
-      setDecks(dks)
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }, [ref])
-
-  useEffect(() => {
-    void load()
-  }, [load])
 
   if (!ref) return null
 
@@ -80,9 +43,8 @@ export default function RoomView() {
     setBusyDeck(deckId)
     try {
       const cards = useStore.getState().cards.filter((c) => c.deckId === deckId)
-      await shareDeckToRoom(ref.url, ref.code, settings.nickname || 'me', deck, cards)
+      await shareDeckToRoom(ref.url, settings.nickname || 'me', deck, cards, send)
       showToast(`🤝 “${deck.name}” shared into the room`)
-      await load()
     } catch (e) {
       showToast('Share failed: ' + (e as Error).message)
     } finally {
@@ -92,6 +54,7 @@ export default function RoomView() {
 
   const imported = (meta: RoomDeckMeta) => myDecks.some((d) => d.id === meta.deckId)
   const shareable = myDecks.filter((d) => !d.sharedBy)
+  const decks = state?.decks ?? []
 
   return (
     <section className="flex h-dvh flex-col overflow-hidden">
@@ -100,9 +63,6 @@ export default function RoomView() {
           ‹
         </button>
         <h1 className="m-0 flex-1 truncate text-[19px] font-bold tracking-tight">🏫 {ref.name}</h1>
-        <button className="iconbtn" title="Refresh" onClick={() => void load()}>
-          ↻
-        </button>
         <button className="btn" data-testid="room-invite" onClick={() => setInvite(true)}>
           ▦ Invite
         </button>
@@ -110,22 +70,27 @@ export default function RoomView() {
 
       <main className="flex-1 overflow-y-auto px-4 pt-1" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}>
         <p className="hint mb-3" data-testid="room-members">
-          {loading
-            ? 'Loading the room…'
-            : members.length
-              ? `Here: ${members.map((m) => m.name).join(', ')}${host ? ` · hosted by ${host}` : ''}`
-              : 'Nobody here yet — invite your friends!'}
+          {status === 'live' && state
+            ? `🟢 Here: ${state.members.map((m) => m.name).join(', ') || 'just you'}${state.host ? ` · hosted by ${state.host}` : ''}`
+            : status === 'connecting'
+              ? '⏳ Connecting to the room…'
+              : ''}
         </p>
-        {error && <p className="hint mb-3 text-again">{error}</p>}
+        {status === 'error' && (
+          <p className="hint mb-3 text-again" data-testid="room-error">
+            Can't reach this room. Make sure you're online and the room's worker is deployed with room support
+            (worker/pawcards-worker.js + wrangler.toml Durable Object blocks). Retrying…
+          </p>
+        )}
 
         <div className="mb-3.5 flex gap-2.5">
-          <button className="btn btn-primary" data-testid="room-share-deck" onClick={() => setPicking(true)}>
+          <button className="btn btn-primary" data-testid="room-share-deck" disabled={status !== 'live'} onClick={() => setPicking(true)}>
             🤝 Share a deck
           </button>
         </div>
 
         <div className="flex flex-col gap-2.5">
-          {!loading && decks.length === 0 && (
+          {status === 'live' && decks.length === 0 && (
             <div className="py-10 text-center text-sm text-muted">No decks shared yet — be the first! 🐾</div>
           )}
           {decks.map((m) => (
