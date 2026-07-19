@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
-import jsQR from 'jsqr'
 import { encodeConfig, parseConfig, type ConfigPayload } from '../lib/qrconfig'
+import { useQrScan } from '../lib/useQrScan'
 
 interface Props {
   mode: 'show' | 'scan'
@@ -24,7 +24,6 @@ const host = (url: string) => {
 
 export default function QrConfigModal({ mode, variant = 'device', config, onApply, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const videoRef = useRef<HTMLVideoElement>(null)
   const [error, setError] = useState('')
   const [scanned, setScanned] = useState<ConfigPayload | null>(null)
 
@@ -39,56 +38,16 @@ export default function QrConfigModal({ mode, variant = 'device', config, onAppl
   }, [mode, config])
 
   // scan mode: camera + decode loop, until a valid payload is found
-  useEffect(() => {
-    if (mode !== 'scan' || scanned) return
-    let stream: MediaStream | null = null
-    let raf = 0
-    let stopped = false
-    const det = document.createElement('canvas')
-    const start = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
-          audio: false,
-        })
-      } catch {
-        setError('Camera unavailable. Allow camera access and try again.')
-        return
-      }
-      const video = videoRef.current
-      if (!video || stopped) return
-      video.srcObject = stream
-      await video.play().catch(() => {})
-      const tick = () => {
-        if (stopped) return
-        if (video.readyState >= 2 && video.videoWidth) {
-          det.width = video.videoWidth
-          det.height = video.videoHeight
-          const ctx = det.getContext('2d', { willReadFrequently: true })!
-          ctx.drawImage(video, 0, 0)
-          const img = ctx.getImageData(0, 0, det.width, det.height)
-          const code = jsQR(img.data, img.width, img.height)
-          if (code?.data) {
-            try {
-              setScanned(parseConfig(code.data))
-              setError('')
-              return // stop the loop; cleanup stops the camera
-            } catch (e) {
-              setError((e as Error).message) // wrong QR — keep scanning
-            }
-          }
-        }
-        raf = requestAnimationFrame(tick)
-      }
-      raf = requestAnimationFrame(tick)
+  const { videoRef, error: camError } = useQrScan(mode === 'scan' && !scanned, (text) => {
+    try {
+      setScanned(parseConfig(text))
+      setError('')
+      return true
+    } catch (e) {
+      setError((e as Error).message) // wrong QR — keep scanning
+      return false
     }
-    void start()
-    return () => {
-      stopped = true
-      cancelAnimationFrame(raf)
-      stream?.getTracks().forEach((t) => t.stop())
-    }
-  }, [mode, scanned])
+  })
 
   return (
     <div
@@ -167,7 +126,7 @@ export default function QrConfigModal({ mode, variant = 'device', config, onAppl
           </>
         )}
 
-        {error && <p className="hint mt-3 text-again">{error}</p>}
+        {(error || camError) && <p className="hint mt-3 text-again">{error || camError}</p>}
 
         <button className="btn btn-ghost mt-4" onClick={onClose}>
           Close

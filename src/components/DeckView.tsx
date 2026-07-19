@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { useStore } from '../store'
 import { dueCards, fmtIv, isDue } from '../lib/srs'
 import { now } from '../lib/constants'
+import { syncConfigured } from '../lib/sync'
 import CardThumb from './CardThumb'
 import ConfirmButton from './ConfirmButton'
 import DeckModal from './DeckModal'
+import ShareDeckModal from './ShareDeckModal'
 
 export default function DeckView() {
   const deckId = useStore((s) => s.curDeckId)!
@@ -19,7 +21,9 @@ export default function DeckView() {
   const startReview = useStore((s) => s.startReview)
   const startCram = useStore((s) => s.startCram)
   const showToast = useStore((s) => s.showToast)
+  const settings = useStore((s) => s.settings)
   const [renaming, setRenaming] = useState(false)
+  const [sharing, setSharing] = useState(false)
 
   if (!deck) return null
   const due = dueCards(cards, null).length
@@ -31,7 +35,28 @@ export default function DeckView() {
         <button className="iconbtn" onClick={() => go('home')}>
           ‹
         </button>
-        <h1 className="m-0 flex-1 truncate text-[19px] font-bold tracking-tight">{deck.name}</h1>
+        <h1 className="m-0 flex-1 truncate text-[19px] font-bold tracking-tight">
+          {deck.name}
+          {deck.sharedBy && <span className="ml-2 text-[12px] font-semibold text-muted">🤝 {deck.sharedBy}</span>}
+        </h1>
+        <button
+          className="iconbtn"
+          title="Share this deck with friends"
+          data-testid="share-deck"
+          onClick={() => {
+            if (!cards.length) {
+              showToast('Nothing to share yet — add a card first')
+              return
+            }
+            if (!syncConfigured(settings)) {
+              showToast('Set up your Worker in Settings → Cloud sync first')
+              return
+            }
+            setSharing(true)
+          }}
+        >
+          🤝
+        </button>
         <button className="iconbtn" title="Rename" onClick={() => setRenaming(true)}>
           ✎
         </button>
@@ -74,6 +99,7 @@ export default function DeckView() {
         </div>
       </main>
 
+      {sharing && <ShareDeckModal deckId={deckId} onClose={() => setSharing(false)} />}
       {renaming && (
         <DeckModal
           title="Rename deck"

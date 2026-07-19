@@ -18,6 +18,7 @@ export function defaultSettings(): Settings {
     syncUrl: '',
     syncId: newSyncId(),
     lastSyncAt: 0,
+    nickname: '',
   }
 }
 

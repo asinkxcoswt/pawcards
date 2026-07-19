@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { selDueCount, useStore } from '../store'
 import { dueCards } from '../lib/srs'
 import DeckModal from './DeckModal'
+import ImportShareModal from './ImportShareModal'
 import SettingsModal from './SettingsModal'
 
 export default function Home() {
@@ -13,12 +14,16 @@ export default function Home() {
   const startReview = useStore((s) => s.startReview)
   const [showNewDeck, setShowNewDeck] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showImport, setShowImport] = useState(false)
 
   return (
     <section className="flex h-dvh flex-col overflow-hidden">
       <header className="flex items-center gap-2.5 px-4 pb-2.5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}>
         <span className="text-xl">🐾</span>
         <h1 className="m-0 flex-1 truncate text-[19px] font-bold tracking-tight">PawCards</h1>
+        <button className="iconbtn" title="Import a shared deck" data-testid="import-share" onClick={() => setShowImport(true)}>
+          🤝
+        </button>
         <button className="iconbtn" title="Settings" onClick={() => setShowSettings(true)}>
           ⚙︎
         </button>
@@ -66,6 +71,7 @@ export default function Home() {
                 <span className="truncate text-[15px] font-bold">{d.name}</span>
                 <span className="text-xs text-muted">
                   {deckCards.length} card{deckCards.length === 1 ? '' : 's'}
+                  {d.sharedBy ? ` · 🤝 ${d.sharedBy}` : ''}
                 </span>
               </button>
             )
@@ -91,6 +97,7 @@ export default function Home() {
         />
       )}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showImport && <ImportShareModal onClose={() => setShowImport(false)} />}
     </section>
   )
 }

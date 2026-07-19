@@ -4,6 +4,7 @@ import { loadDoc, memoryOnly, saveDoc } from './lib/db'
 import { runPolish } from './lib/polish'
 import { defaultDoc, defaultSettings, migrateSettings } from './lib/settings'
 import { applyGrade, dueCards, isDue, unretire } from './lib/srs'
+import type { ShareDoc } from './lib/share'
 import { mergeRemote, syncConfigured, syncEndpoint } from './lib/sync'
 import type { Card, Deck, Doc, Grade, PolishJob, ReviewSession, Settings } from './lib/types'
 
@@ -57,6 +58,8 @@ interface Actions {
   saveSettings: (patch: Partial<Settings>) => void
   exportJson: () => string
   importJson: (json: string) => number
+  /** import a friend's shared deck (tagged sharedBy); returns card count */
+  importSharedDeck: (share: ShareDoc) => number
   wipe: () => void
 
   // sync
@@ -325,6 +328,28 @@ export const useStore = create<Store>((set, get) => {
       })
       persist(get)
       return doc.cards.length
+    },
+    importSharedDeck: (share) => {
+      const stamp = (x: { updated?: number; created?: number } | undefined) => (x && (x.updated ?? x.created)) || 0
+      set((s) => {
+        const decks = [...s.decks]
+        if (!decks.some((d) => d.id === share.deck.id)) {
+          decks.push({ ...share.deck, sharedBy: share.by })
+        }
+        const cards = [...s.cards]
+        for (const c of share.cards) {
+          const i = cards.findIndex((x) => x.id === c.id)
+          if (i < 0) cards.push(c)
+          else if (stamp(c) > stamp(cards[i])) cards[i] = c // newest edit wins on re-import
+        }
+        // importing is an explicit "I want this" — clear any old deletions of these ids
+        const tombstones = { ...s.tombstones }
+        delete tombstones[share.deck.id]
+        for (const c of share.cards) delete tombstones[c.id]
+        return { decks, cards, tombstones }
+      })
+      persist(get)
+      return share.cards.length
     },
     wipe: () => {
       set({ ...defaultDoc(), screen: 'home', curDeckId: null, curCardId: null, session: null })

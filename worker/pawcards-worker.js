@@ -82,6 +82,12 @@ export default {
       if (!env.SYNC) {
         return json(500, { error: "SYNC storage missing — create a KV namespace and bind it as SYNC (see wrangler.toml)" });
       }
+      // list ids by prefix (used by deck-share rooms): GET /sync?key=…&list=room-xxxx-
+      const listPrefix = (url.searchParams.get("list") || "").trim();
+      if (request.method === "GET" && listPrefix.length >= 5) {
+        const r = await env.SYNC.list({ prefix: "doc:" + listPrefix, limit: 100 });
+        return json(200, { ids: r.keys.map((k) => k.name.slice(4)) });
+      }
       const id = (url.searchParams.get("id") || "").trim();
       if (id.length < 8) return json(400, { error: "sync id missing or too short" });
       const kvKey = "doc:" + id;
@@ -98,7 +104,10 @@ export default {
         let body;
         try { body = JSON.parse(txt); } catch { return json(400, { error: "expected JSON body" }); }
         const updatedAt = Date.now();
-        await env.SYNC.put(kvKey, JSON.stringify({ doc: body.doc || body, updatedAt }));
+        // shared decks and rooms are temporary — expire them so workshop debris
+        // doesn't pile up in KV (personal sync docs never expire)
+        const ttl = /^(share|room)-/.test(id) ? { expirationTtl: 60 * 60 * 24 * 60 } : undefined;
+        await env.SYNC.put(kvKey, JSON.stringify({ doc: body.doc || body, updatedAt }), ttl);
         return json(200, { ok: true, updatedAt });
       }
       return json(405, { error: "use GET or PUT" });

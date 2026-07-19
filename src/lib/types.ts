@@ -44,6 +44,8 @@ export interface Deck {
   color: string
   created: number
   updated?: number
+  /** nickname of the friend who shared this deck (absent on your own decks) */
+  sharedBy?: string
 }
 
 export type Provider = 'local' | 'gemini' | 'openai'
@@ -60,6 +62,8 @@ export interface Settings {
   syncUrl: string
   syncId: string
   lastSyncAt: number
+  /** shown to friends on decks you share; asked on first share */
+  nickname: string
 }
 
 export interface Doc {

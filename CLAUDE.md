@@ -40,11 +40,17 @@ src/
   lib/polish.ts       three providers, txt2img ONLY (img2img was removed — see History)
   lib/canvas.ts       stroke render, bg-image cover draw, Thai-aware canvas text (thumbs only)
   lib/qrconfig.ts     encode/parse the settings-transfer QR payload (AI + sync config)
+  lib/share.ts        deck sharing: deck uploads to KV (share-… id, images incl.),
+                      QR carries only the pointer {url, id, name, by, count}
+  lib/useQrScan.ts    camera + jsQR decode loop hook (used by all scanners)
   components/         Home, DeckView, Editor (drawing engine), Review, SettingsModal,
                       DeckModal, CardThumb, ConfirmButton (tap-again pattern), Toast,
                       QrConfigModal (show/scan settings QR; in-app scanner because the
                       iOS PWA can't be deep-linked from the native camera),
-                      SyncFab (floating "☁ Sync changes" button when dirty)
+                      SyncFab (floating "☁ Sync changes" button when dirty),
+                      ShareDeckModal (🤝 in DeckView: nickname → upload → QR),
+                      ImportShareModal (🤝 on Home: scan → preview → import;
+                      imported decks get deck.sharedBy + 🤝 badge)
 worker/               Cloudflare Worker (generation + translation + sync) — source of
                       truth currently deploys from the littlepawcraft repo, copy kept here
 e2e/  tests/          Playwright specs / bun unit tests
@@ -63,7 +69,10 @@ Endpoints (all CORS `*`; `?key=SECRET` gates everything):
   unused). **Thai in the prompt is auto-translated** span-by-span via
   `@cf/meta/m2m100-1.2b` so English style words survive.
 - `GET/PUT /sync?key=&id=SYNCID` — whole-doc sync storage in **KV** (binding
-  `SYNC`, 24MB guard). Stored value: `{doc, updatedAt}`.
+  `SYNC`, 24MB guard). Stored value: `{doc, updatedAt}`. The endpoint is a
+  generic KV store: deck shares use ids `share-…` and (planned) rooms `room-…`
+  — those get a 60-day `expirationTtl`; personal sync docs never expire.
+  `GET /sync?key=&list=<prefix>` lists ids by prefix (for rooms).
 
 Free-tier notes: Workers AI = 10k neurons/day **per account** (not per worker);
 KV = 1k writes/day (sync is user-triggered or on open/hide, never on a timer).
