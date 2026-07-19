@@ -8,12 +8,16 @@ import DeckView from './components/DeckView'
 import Editor from './components/Editor'
 import Review from './components/Review'
 import RoomView from './components/RoomView'
+import Onboarding from './components/Onboarding'
 import Toast from './components/Toast'
 
 export default function App() {
   const screen = useStore((s) => s.screen)
   const loaded = useStore((s) => s.loaded)
   const init = useStore((s) => s.init)
+  const settings = useStore((s) => s.settings)
+  const cards = useStore((s) => s.cards)
+  const decks = useStore((s) => s.decks)
   const [updateTo, setUpdateTo] = useState<string | null>(null)
   const updateDismissed = useRef(false)
 
@@ -55,6 +59,14 @@ export default function App() {
 
   if (!loaded) return null
 
+  // only on a genuinely fresh install: nothing created, nothing configured, not skipped
+  const showOnboarding =
+    !settings.onboarded &&
+    decks.length === 0 &&
+    cards.length === 0 &&
+    !settings.syncUrl.trim() &&
+    !settings.apiKey.trim()
+
   return (
     <div className="h-dvh flex flex-col overflow-hidden">
       {screen === 'home' && <Home />}
@@ -62,6 +74,7 @@ export default function App() {
       {screen === 'editor' && <Editor />}
       {screen === 'review' && <Review />}
       {screen === 'room' && <RoomView />}
+      {showOnboarding && <Onboarding />}
       <Toast />
       {updateTo && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(30,25,18,.4)]">

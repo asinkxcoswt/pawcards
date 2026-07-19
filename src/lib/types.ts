@@ -68,6 +68,8 @@ export interface Settings {
   nickname: string
   /** host preference: cards to draw per group review (0 = all shared cards) */
   roomReviewCount: number
+  /** the first-run welcome popup has been answered (scan or skip) */
+  onboarded: boolean
 }
 
 /**

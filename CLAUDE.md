@@ -56,7 +56,12 @@ src/
   lib/useQrScan.ts    camera decode loop + scanFile (decode a picked image) hook;
                       QrScanner.tsx is the shared UI (video + "🖼 From a photo")
                       used by ALL scanners — settings, deck import, room join
-  components/         Home, DeckView, Editor (drawing engine), Review, SettingsModal,
+  components/         Onboarding (first-run popup: Scan setup QR / Skip; shown by
+                      App only on a genuinely fresh install — no decks/cards, no
+                      syncUrl/apiKey, settings.onboarded false; option 3 "provision
+                      a backend" deliberately NOT built — see session notes on
+                      Cloudflare OAuth/Worker-can't-run-CLI limits),
+                      Home, DeckView, Editor (drawing engine), Review, SettingsModal,
                       DeckModal, CardThumb, ConfirmButton (tap-again pattern), Toast,
                       QrConfigModal (show/scan settings QR; in-app scanner because the
                       iOS PWA can't be deep-linked from the native camera),

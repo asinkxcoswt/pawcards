@@ -16,7 +16,9 @@ export async function resetApp(page: Page, settings: Record<string, unknown> = {
       cards: [],
       tombstones: {},
       rooms: [],
-      settings: { ...s.settings, ...patch },
+      // default onboarded so the first-run popup doesn't overlay tests
+      // (an onboarding test can pass onboarded:false to opt in)
+      settings: { ...s.settings, onboarded: true, ...patch },
       screen: 'home',
       curDeckId: null,
       curCardId: null,

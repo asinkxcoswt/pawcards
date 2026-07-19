@@ -27,6 +27,41 @@ async function decodeShownQr(page: Page) {
   return parseConfig(code!.data)
 }
 
+test('fresh install shows onboarding; Skip dismisses it and does not return', async ({ page }) => {
+  await resetApp(page, { onboarded: false }) // simulate a first run
+  await expect(page.getByTestId('onboarding')).toBeVisible()
+  await page.getByTestId('onboard-skip').click()
+  await expect(page.getByTestId('onboarding')).toHaveCount(0)
+  expect(await store<boolean>(page, 's => s.settings.onboarded')).toBe(true)
+  // reloading keeps it dismissed — wait for the debounced IndexedDB write first
+  await page.waitForTimeout(600)
+  await page.reload()
+  await page.waitForFunction('window.__store && window.__store.getState().loaded')
+  await expect(page.getByTestId('onboarding')).toHaveCount(0)
+})
+
+test('onboarding Scan → applies a friend/deploy settings QR and dismisses', async ({ browser }) => {
+  // device A produces a settings QR image
+  const A = await (await browser.newContext()).newPage()
+  await openSettings(A)
+  await A.getByTestId('qr-show').click()
+  const dataUrl = await A.getByTestId('qr-canvas').evaluate((el) => (el as HTMLCanvasElement).toDataURL('image/png'))
+  const png = Buffer.from(dataUrl.split(',')[1], 'base64')
+
+  // device B is a fresh install → onboarding → Scan → pick the image
+  const B = await (await browser.newContext()).newPage()
+  await resetApp(B, { onboarded: false })
+  await expect(B.getByTestId('onboarding')).toBeVisible()
+  await B.getByTestId('onboard-scan').click()
+  await B.getByTestId('qr-file-input').setInputFiles({ name: 'setup.png', mimeType: 'image/png', buffer: png })
+  await expect(B.getByTestId('qr-summary')).toBeVisible({ timeout: 5000 })
+  await B.getByTestId('qr-apply').click()
+
+  expect(await store<string>(B, 's => s.settings.syncUrl')).toBe('https://paw.e2e.workers.dev/?key=sync')
+  expect(await store<boolean>(B, 's => s.settings.onboarded')).toBe(true)
+  await expect(B.getByTestId('onboarding')).toHaveCount(0)
+})
+
 test('settings QR renders and decodes back to the device config', async ({ page }) => {
   await openSettings(page)
   await page.getByTestId('qr-show').click()
@@ -57,11 +92,12 @@ test('scan from a photo: device A\'s QR image imports on device B (full loop, no
   await B.getByTestId('qr-apply').click()
   expect(await store<string>(B, 's => s.settings.syncUrl')).toBe('https://paw.e2e.workers.dev/?key=sync')
   expect(await store<string>(B, 's => s.settings.syncId')).toBe('paw-e2e-qr-0001')
+})
 
-  // a photo without any QR gives a friendly error and keeps the scanner open
-  // (the settings modal is still open after applying)
-  await B.getByTestId('qr-scan').click()
-  const blank = await B.evaluate(() => {
+test('picking a photo with no QR shows a friendly error', async ({ page }) => {
+  await openSettings(page)
+  await page.getByTestId('qr-scan').click()
+  const blank = await page.evaluate(() => {
     const cv = document.createElement('canvas')
     cv.width = 200
     cv.height = 200
@@ -69,12 +105,12 @@ test('scan from a photo: device A\'s QR image imports on device B (full loop, no
     cv.getContext('2d')!.fillRect(0, 0, 200, 200)
     return cv.toDataURL('image/png')
   })
-  await B.getByTestId('qr-file-input').setInputFiles({
+  await page.getByTestId('qr-file-input').setInputFiles({
     name: 'nothing.png',
     mimeType: 'image/png',
     buffer: Buffer.from(blank.split(',')[1], 'base64'),
   })
-  await expect(B.getByText(/No QR code found/)).toBeVisible()
+  await expect(page.getByText(/No QR code found/)).toBeVisible({ timeout: 10_000 })
 })
 
 test('settings QR has a Share/Save button; desktop path downloads the image', async ({ page }) => {

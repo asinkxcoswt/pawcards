@@ -154,6 +154,8 @@ test('backgrounding the app pushes pending edits (no manual button needed)', asy
 test('Sync ID is prefilled on first run; New ID needs a confirming second tap', async ({ page }) => {
   await page.goto('/')
   await page.waitForFunction('window.__store && window.__store.getState().loaded')
+  // a fresh install shows onboarding first — skip it to reach the app
+  await page.getByTestId('onboard-skip').click()
   await page.locator('.iconbtn', { hasText: '⚙︎' }).click()
 
   const idInput = page.getByPlaceholder(/tap New ID/)

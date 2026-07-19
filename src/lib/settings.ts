@@ -20,6 +20,7 @@ export function defaultSettings(): Settings {
     lastSyncAt: 0,
     nickname: '',
     roomReviewCount: 20,
+    onboarded: false,
   }
 }
 
