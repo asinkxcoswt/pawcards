@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../store'
 import { newSyncId } from '../lib/settings'
+import { SETUP_GUIDE_URL } from '../lib/constants'
 import type { ConfigPayload } from '../lib/qrconfig'
 import QrConfigModal from './QrConfigModal'
 
@@ -42,29 +43,28 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(30,25,18,.5)]">
-      <div
-        className="w-full max-w-[560px] rounded-t-[20px] bg-panel p-5"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}
-        data-testid="onboarding"
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(30,25,18,.5)] p-4">
+      <div className="w-full max-w-[420px] rounded-[20px] bg-panel p-5 shadow-soft" data-testid="onboarding">
         <div className="mb-1 text-center text-[34px]">🐾</div>
         <h2 className="m-0 mb-1 text-center text-[19px] font-bold">Welcome to PawCards</h2>
         <p className="hint mb-4 text-center">
-          Draw-first flashcards, stored on this device. To generate card images or sync across devices, point the app at
-          a Worker — you can do it now with a QR, or anytime in Settings.
+          To generate card images and sync across devices, ask a friend who uses PawCards for a setup QR — then scan it
+          here.
         </p>
         <div className="flex flex-col gap-2">
           <button className="btn btn-primary" data-testid="onboard-scan" onClick={() => setScanning(true)}>
             📷 Scan a setup QR
           </button>
-          <p className="hint mb-1 text-center text-[12px]">
-            Got a QR from a friend or your deploy script? Scan it to configure everything at once.
-          </p>
           <button className="btn btn-ghost" data-testid="onboard-skip" onClick={() => saveSettings({ onboarded: true })}>
             Skip — I'll set up later
           </button>
         </div>
+        <p className="hint mt-4 text-center text-[12px]">
+          Setting up your own?{' '}
+          <a href={SETUP_GUIDE_URL} target="_blank" rel="noreferrer" className="font-semibold text-accent underline" data-testid="onboard-guide">
+            Follow the guide on GitHub ↗
+          </a>
+        </p>
       </div>
     </div>
   )
