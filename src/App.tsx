@@ -9,6 +9,8 @@ import Editor from './components/Editor'
 import Review from './components/Review'
 import RoomView from './components/RoomView'
 import Onboarding from './components/Onboarding'
+import InstallPrompt from './components/InstallPrompt'
+import { detectPlatform, installDismissed, isStandalone } from './lib/pwa'
 import Toast from './components/Toast'
 
 export default function App() {
@@ -18,6 +20,11 @@ export default function App() {
   const settings = useStore((s) => s.settings)
   const cards = useStore((s) => s.cards)
   const decks = useStore((s) => s.decks)
+  // offer "add to home screen" in a mobile browser tab (once, until dismissed/installed)
+  const installPlatform = detectPlatform()
+  const [installOffered, setInstallOffered] = useState(
+    () => isStandalone() || installDismissed() || (installPlatform !== 'ios' && installPlatform !== 'android'),
+  )
   const [updateTo, setUpdateTo] = useState<string | null>(null)
   const updateDismissed = useRef(false)
 
@@ -59,8 +66,11 @@ export default function App() {
 
   if (!loaded) return null
 
+  // install invite comes first; onboarding waits until it's answered
+  const showInstall = !installOffered
   // only on a genuinely fresh install: nothing created, nothing configured, not skipped
   const showOnboarding =
+    !showInstall &&
     !settings.onboarded &&
     decks.length === 0 &&
     cards.length === 0 &&
@@ -74,6 +84,9 @@ export default function App() {
       {screen === 'editor' && <Editor />}
       {screen === 'review' && <Review />}
       {screen === 'room' && <RoomView />}
+      {showInstall && (
+        <InstallPrompt platform={installPlatform as 'ios' | 'android'} onDone={() => setInstallOffered(true)} />
+      )}
       {showOnboarding && <Onboarding />}
       <Toast />
       {updateTo && (

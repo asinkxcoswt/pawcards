@@ -217,8 +217,14 @@ Friends get their own Cloudflare account + worker URL rather than a shared one.
 - **Origin change = fresh IndexedDB.** Migration path for existing data:
   old app → Settings → Export backup → new app Import; or just configure the
   same Sync URL + Sync ID and pull.
-- PWA install: Safari → Share → Add to Home Screen (icon: `public/pawcards-icon.png`,
-  apple meta tags in index.html). No service worker yet — needs network to load.
+- PWA install: `public/manifest.webmanifest` (name/display/theme + 192 & 512
+  icons) + apple meta tags in index.html. A first-run `InstallPrompt`
+  (`lib/pwa.ts`) invites "Add to Home Screen" in a mobile browser tab (skipped
+  when standalone/dismissed): Android gets a real Install button via captured
+  `beforeinstallprompt`; iOS gets Share→Add-to-Home-Screen instructions (no
+  API). Shows BEFORE Onboarding; dismissal persists in localStorage
+  (`paw-install-dismissed`). No service worker yet — needs network to load,
+  and beforeinstallprompt may not fire on every Android without one.
 
 ## Known gaps / roadmap candidates
 
