@@ -222,7 +222,7 @@ export default function Editor() {
     }
   }
   const openCustomPrompt = () => {
-    setCustomPrompt(card?.subject ?? '')
+    setCustomPrompt('')
     setCustomOpen(true)
   }
   const generateCustom = () => {

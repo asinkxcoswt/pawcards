@@ -80,8 +80,12 @@ test('combo menu → custom prompt generates from the typed text, not the answer
   const prompt = lastPolishBody.prompt ?? ''
   expect(prompt.startsWith('a red panda juggling teacups')).toBe(true)
   expect(prompt).not.toContain('the real answer')
-  // the custom subject is remembered on the card (prefills the next custom prompt)
   expect(await store<string>(page, 's => s.cards[0].subject')).toBe('a red panda juggling teacups')
+
+  // the dialog always opens blank — never prefilled from the answer or a previous prompt
+  await page.getByTestId('gen-menu').click()
+  await page.getByTestId('gen-custom').click()
+  await expect(page.getByTestId('custom-prompt-input')).toHaveValue('')
 })
 
 test('regenerating replaces the background without touching ink', async ({ page }) => {
