@@ -9,7 +9,8 @@
     "preview": "vite preview --port 4173 --strictPort",
     "test": "bun test tests/",
     "e2e": "playwright test",
-    "check": "bun run build && bun test tests/ && playwright test"
+    "check": "bun run build && bun test tests/ && playwright test",
+    "deploy:worker": "bun worker/deploy.ts"
   },
   "dependencies": {
     "jsqr": "^1.4.0",

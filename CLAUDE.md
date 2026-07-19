@@ -66,9 +66,31 @@ e2e/  tests/          Playwright specs / bun unit tests
 
 ## The Worker (backend, user-owned)
 
-`worker/pawcards-worker.js`, deployed on Khaan's Cloudflare account (auto-deploy
-via Workers Builds from the littlepawcraft repo, folder `workers/pawcards-polish`,
-watch-paths configured; `SECRET` is a Worker env secret, not in git).
+`worker/pawcards-worker.js`, deployed on Khaan's Cloudflare account via the
+local provisioning script (the earlier littlepawcraft-repo Workers Builds
+pipeline was retired 2026-07 at Khaan's request):
+
+```bash
+bunx wrangler login           # once per machine
+bun worker/deploy.ts          # main stack (profile "pawcards-polish")
+bun worker/deploy.ts paw-test # another stack; scaffolds worker/stacks/paw-test.json
+bun worker/deploy.ts NAME --rotate-key  # new SECRET (old QR configs stop working)
+```
+
+Each stack has an editable profile `worker/stacks/<profile>.json`
+(`{"worker": …, "kv": …}` — kv is a namespace TITLE to find-or-create, or a
+32-hex id to bind as-is). The main profile pins kv to Khaan's pre-existing
+dashboard namespace titled `"SYNC"`. Gotcha that motivated profiles: wrangler
+titles a created namespace after the binding argument (NOT `<worker>-<binding>`),
+so titles must be identifier-shaped and collide across stacks without profiles.
+Idempotent: reuses the namespace, keeps the SECRET (shown only when first
+generated — it can't be read back), writes generated config to
+`worker/.wrangler.<worker>.json` (gitignored). `worker/wrangler.toml` is
+reference-only documentation. When a run mints a key (new stack or
+`--rotate-key`) it also writes + opens `worker/.wrangler.<worker>.qr.svg`
+(gitignored — contains the key): a settings card (`worker/settings-qr.ts`,
+styled like the in-app QR sheet, shows env + date) that the app imports via
+Settings → 📷 Scan settings QR; syncId is blank so devices keep their own.
 
 Endpoints (all CORS `*`; `?key=SECRET` gates everything):
 - `POST /` — image generation. Body `{prompt, init_images?, ...}` → `{images:[b64]}`.

@@ -1,3 +1,12 @@
+# ⚠ REFERENCE ONLY — the recommended way to deploy is the local script:
+#
+#     bunx wrangler login     (once)
+#     bun worker/deploy.ts    [name] [--rotate-key]
+#
+# It provisions the whole stack (KV namespace, Durable Object, SECRET) and
+# writes its own generated config (worker/.wrangler.<name>.json, gitignored).
+# This file remains only as documentation of what that config contains.
+
 name = "pawcards-polish"
 main = "pawcards-worker.js"
 compatibility_date = "2026-07-01"
