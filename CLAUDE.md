@@ -64,7 +64,12 @@ src/
                       ImportShareModal (🤝 on Home: scan → preview → import;
                       imported decks get deck.sharedBy + 🤝 badge),
                       RoomsSection (Home: room chips + create/join modals),
-                      RoomView (members, shared decks, invite QR, share picker)
+                      RoomView (members, shared decks, invite QR, share picker),
+                      RoomReview (group review: host sends review-flip/next/end
+                      via the room socket, everyone follows live; grading is
+                      private — any grade except Easy on a non-imported deck
+                      imports it implicitly; card content comes from the local
+                      store if imported, else lazily-fetched+cached ShareDocs)
 worker/               Cloudflare Worker (generation + translation + sync) — source of
                       truth currently deploys from the littlepawcraft repo, copy kept here
 e2e/  tests/          Playwright specs / bun unit tests

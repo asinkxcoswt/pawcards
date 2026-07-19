@@ -256,6 +256,41 @@ export class PawRoom {
       await this.broadcast();
       // the share-… payload in KV is left to its 60-day TTL
     }
+
+    /* ---- group review: whoever starts is host; only the host advances ---- */
+    if (m.type === "start-review" && Array.isArray(m.queue) && m.queue.length) {
+      const queue = m.queue
+        .filter((q) => q && typeof q.deckId === "string" && typeof q.cardId === "string")
+        .slice(0, 1000)
+        .map((q) => ({ deckId: q.deckId, cardId: q.cardId }));
+      if (!queue.length) return;
+      await this.state.storage.put("review", {
+        queue,
+        i: 0,
+        flipped: false,
+        hostMemberId: a.memberId,
+        hostName: a.name,
+        startedAt: Date.now(),
+      });
+      await this.state.storage.setAlarm(Date.now() + ROOM_TTL_MS);
+      await this.broadcast();
+    }
+    if (m.type === "review-flip" || m.type === "review-next" || m.type === "review-end") {
+      const review = await this.state.storage.get("review");
+      if (!review || review.hostMemberId !== a.memberId) return; // host-only
+      if (m.type === "review-flip") {
+        review.flipped = true;
+        await this.state.storage.put("review", review);
+      } else if (m.type === "review-next" && review.i + 1 < review.queue.length) {
+        review.i += 1;
+        review.flipped = false;
+        await this.state.storage.put("review", review);
+      } else {
+        // review-end, or next past the last card = session complete
+        await this.state.storage.delete("review");
+      }
+      await this.broadcast();
+    }
   }
 
   async webSocketClose() { await this.broadcast(); }
@@ -264,6 +299,7 @@ export class PawRoom {
   async broadcast() {
     const meta = (await this.state.storage.get("meta")) || {};
     const decks = (await this.state.storage.get("decks")) || [];
+    const review = (await this.state.storage.get("review")) || null;
     const members = [];
     const seen = new Set();
     const sockets = this.state.getWebSockets();
@@ -275,7 +311,7 @@ export class PawRoom {
         members.push({ memberId: a.memberId, name: a.name });
       }
     }
-    const state = JSON.stringify({ type: "state", name: meta.name, host: meta.host, createdAt: meta.createdAt, members, decks });
+    const state = JSON.stringify({ type: "state", name: meta.name, host: meta.host, createdAt: meta.createdAt, members, decks, review });
     for (const ws of sockets) {
       try { ws.send(state); } catch { /* closing socket — presence updates on its close event */ }
     }

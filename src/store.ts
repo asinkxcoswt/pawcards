@@ -54,6 +54,8 @@ interface Actions {
   flip: () => void
   grade: (g: Grade) => void
   endReview: () => void
+  /** standalone grade (group review) — applies SRS to one card by id */
+  gradeCard: (id: string, g: Grade) => void
 
   // settings / data
   saveSettings: (patch: Partial<Settings>) => void
@@ -311,6 +313,13 @@ export const useStore = create<Store>((set, get) => {
       set({ session: { ...sess, queue, total, i, done, flipped: false } })
     },
     endReview: () => set((s) => ({ session: null, screen: s.curDeckId ? 'deck' : 'home' })),
+    gradeCard: (id, g) => {
+      patchCard(id, (cc) => {
+        const copy = { ...cc, srs: cc.srs ? { ...cc.srs } : null }
+        applyGrade(copy, g)
+        return touch(copy)
+      })
+    },
 
     /* ---------- settings / data ---------- */
     saveSettings: (patch) => {

@@ -12,16 +12,31 @@ interface Conn {
   memberId: string
   name: string
 }
-const room: { meta: { name: string; host: string; createdAt: number } | null; decks: unknown[]; conns: Conn[] } = {
-  meta: null,
-  decks: [],
-  conns: [],
+interface FakeReview {
+  queue: { deckId: string; cardId: string }[]
+  i: number
+  flipped: boolean
+  hostMemberId: string
+  hostName: string
+  startedAt: number
 }
+const room: {
+  meta: { name: string; host: string; createdAt: number } | null
+  decks: unknown[]
+  conns: Conn[]
+  review: FakeReview | null
+} = { meta: null, decks: [], conns: [], review: null }
 
 function broadcast() {
   const members: { memberId: string; name: string }[] = []
   for (const c of room.conns) if (!members.some((m) => m.memberId === c.memberId)) members.push({ memberId: c.memberId, name: c.name })
-  const state = JSON.stringify({ type: 'state', ...(room.meta ?? { name: '?', host: '?', createdAt: 0 }), members, decks: room.decks })
+  const state = JSON.stringify({
+    type: 'state',
+    ...(room.meta ?? { name: '?', host: '?', createdAt: 0 }),
+    members,
+    decks: room.decks,
+    review: room.review,
+  })
   for (const c of room.conns) c.ws.send(state)
 }
 
@@ -70,6 +85,20 @@ async function wire(page: Page) {
         room.decks = room.decks.filter((d) => d !== entry)
         broadcast()
       }
+      // group review — mirrors the PawRoom DO
+      if (m.type === 'start-review' && Array.isArray(m.queue) && m.queue.length) {
+        room.review = { queue: m.queue, i: 0, flipped: false, hostMemberId: memberId, hostName: name, startedAt: 1 }
+        broadcast()
+      }
+      if (m.type === 'review-flip' || m.type === 'review-next' || m.type === 'review-end') {
+        if (!room.review || room.review.hostMemberId !== memberId) return
+        if (m.type === 'review-flip') room.review.flipped = true
+        else if (m.type === 'review-next' && room.review.i + 1 < room.review.queue.length) {
+          room.review.i += 1
+          room.review.flipped = false
+        } else room.review = null
+        broadcast()
+      }
     })
     ws.onClose(() => {
       room.conns = room.conns.filter((c) => c !== conn)
@@ -102,11 +131,91 @@ test('unreachable room (old worker / offline) → clear error, keeps retrying', 
   await expect(page.getByTestId('room-error')).toBeVisible({ timeout: 15_000 })
 })
 
+test('group review: host drives, guest follows live, grading imports implicitly', async ({ browser }) => {
+  kv.clear()
+  Object.assign(room, { meta: null, decks: [], conns: [], review: null })
+
+  /* host: deck with 2 cards, room, share the deck in */
+  const A = await (await browser.newContext()).newPage()
+  await wire(A)
+  await resetApp(A, { syncUrl: WORKER + '/?key=pw', syncId: 'paw-e2e-rr-1', nickname: 'Khaan' })
+  await createDeckAndCard(A, 'Herbs', 'basil vs holy basil')
+  await A.getByText('‹').click()
+  const deckId = await store<string>(A, 's => s.decks[0].id')
+  await A.evaluate((deckId) => {
+    const w = window as any
+    const t = Date.now()
+    w.__store.setState({
+      cards: [
+        ...w.__store.getState().cards,
+        { id: 'c2', deckId, created: t, updated: t, front: [], back: [], backText: 'galangal is not ginger', srs: null, polished: {} },
+      ],
+    })
+  }, deckId)
+  await A.getByText('‹').click() // → home
+  await A.getByTestId('room-create').click()
+  await A.getByTestId('room-name').fill('Thai Cooking')
+  await A.getByTestId('room-create-go').click()
+  await A.getByTestId('room-share-deck').click()
+  await A.getByTestId('pick-deck-' + deckId).click()
+  await expect(A.getByTestId('room-deck-' + deckId)).toContainText('2 cards', { timeout: 5000 })
+
+  /* guest joins, does NOT import */
+  const B = await (await browser.newContext()).newPage()
+  await wire(B)
+  await resetApp(B, { nickname: 'Fai' })
+  await B.evaluate(() => {
+    const w = window as any
+    w.__store.getState().addRoomRef({ code: 'room-rr-test', url: 'https://pawroom.test.workers.dev/?key=pw', name: 'Thai Cooking', memberId: 'friend01', joinedAt: Date.now() })
+    w.__store.getState().openRoom('room-rr-test')
+  })
+  await expect(B.getByTestId('room-members')).toContainText('Fai', { timeout: 5000 })
+
+  /* host starts; guest sees the banner and joins */
+  await A.getByTestId('room-review-start').click()
+  await expect(A.getByTestId('rr-card')).toBeVisible({ timeout: 5000 })
+  await expect(B.getByTestId('room-review-join')).toBeVisible({ timeout: 5000 })
+  await B.getByTestId('room-review-join').click()
+  await expect(B.getByTestId('rr-card')).toBeVisible()
+  await expect(A.getByTestId('rr-progress')).toHaveText('1 / 2')
+  await expect(B.getByTestId('rr-progress')).toHaveText('1 / 2')
+
+  /* host reveals — the guest's card flips by itself, same answer */
+  await expect(B.getByTestId('rr-answer')).toHaveCount(0)
+  await A.getByTestId('rr-flip').click()
+  await expect(B.getByTestId('rr-answer')).toBeVisible({ timeout: 5000 })
+  const answerA = await A.getByTestId('rr-answer').textContent()
+  const answerB = await B.getByTestId('rr-answer').textContent()
+  expect(answerB).toBe(answerA)
+
+  /* guest grades Good → implicit import + private SRS */
+  await B.getByTestId('rr-grade-2').click()
+  await expect(B.locator('#toast')).toContainText('Imported', { timeout: 5000 })
+  expect(await store<number>(B, 's => s.decks.length')).toBe(1)
+  expect(await store<string>(B, 's => s.decks[0].sharedBy')).toBe('Khaan')
+  expect(await store<boolean>(B, 's => s.cards.some(c => c.srs && c.srs.reps === 1)')).toBe(true)
+  // host's own copy is untouched by the guest's grade
+  expect(await store<boolean>(A, 's => s.cards.every(c => !c.srs)')).toBe(true)
+
+  /* host advances; both move together */
+  await A.getByTestId('rr-next').click()
+  await expect(A.getByTestId('rr-progress')).toHaveText('2 / 2')
+  await expect(B.getByTestId('rr-progress')).toHaveText('2 / 2', { timeout: 5000 })
+
+  /* finishing returns everyone to the room */
+  await A.getByTestId('rr-flip').click()
+  await A.getByTestId('rr-next').click() // 🏁 Finish
+  await expect(A.getByTestId('rr-card')).toHaveCount(0, { timeout: 5000 })
+  await expect(B.getByTestId('rr-card')).toHaveCount(0, { timeout: 5000 })
+  await expect(B.locator('#toast')).toContainText('finished')
+})
+
 test('room: live create, share, join, import, leave', async ({ browser }) => {
   kv.clear()
   room.meta = null
   room.decks = []
   room.conns = []
+  room.review = null
 
   /* ---- host: create room; the socket brings it alive ---- */
   const A = await (await browser.newContext()).newPage()

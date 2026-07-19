@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { useStore } from '../store'
 import { encodeRoomQr, fetchRoomDeck, shareDeckToRoom, unshareDeckFromRoom, useRoom, type RoomDeckMeta } from '../lib/room'
+import type { ShareDoc } from '../lib/share'
 import ConfirmButton from './ConfirmButton'
+import RoomReview from './RoomReview'
 
 /**
  * Inside a room — live over a WebSocket to the room's Durable Object.
@@ -20,6 +22,24 @@ export default function RoomView() {
   const [invite, setInvite] = useState(false)
   const [picking, setPicking] = useState(false)
   const [busyDeck, setBusyDeck] = useState('')
+  const [inReview, setInReview] = useState(false)
+  const [starting, setStarting] = useState(false)
+  /** deckId → fetched payload; shared with the review so nothing downloads twice */
+  const cacheRef = useRef(new Map<string, ShareDoc>())
+
+  const review = state?.review ?? null
+  // the host finishing (or ending) the session returns everyone to the room.
+  // sawReview guards the start-up race: right after "start", inReview is true
+  // but the DO's broadcast with the review hasn't arrived yet.
+  const sawReview = useRef(false)
+  useEffect(() => {
+    if (inReview && review) sawReview.current = true
+    if (inReview && !review && sawReview.current) {
+      sawReview.current = false
+      setInReview(false)
+      useStore.getState().showToast('Group review finished 🎉')
+    }
+  }, [inReview, review])
 
   if (!ref) return null
 
@@ -56,6 +76,36 @@ export default function RoomView() {
     }
   }
 
+  /** host flow: fetch every shared deck, build one shuffled queue, announce it */
+  const startGroupReview = async () => {
+    setStarting(true)
+    try {
+      const refs: { deckId: string; cardId: string }[] = []
+      for (const m of state?.decks ?? []) {
+        let doc = cacheRef.current.get(m.deckId)
+        if (!doc) {
+          doc = await fetchRoomDeck(ref.url, m)
+          cacheRef.current.set(m.deckId, doc)
+        }
+        for (const c of doc.cards) refs.push({ deckId: m.deckId, cardId: c.id })
+      }
+      if (!refs.length) {
+        showToast('The shared decks have no cards yet')
+        return
+      }
+      for (let i = refs.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[refs[i], refs[j]] = [refs[j], refs[i]]
+      }
+      send({ type: 'start-review', queue: refs })
+      setInReview(true)
+    } catch (e) {
+      showToast('Could not start: ' + (e as Error).message)
+    } finally {
+      setStarting(false)
+    }
+  }
+
   /** shared by me (from this room membership) — I can re-share and unshare */
   const mine = (meta: RoomDeckMeta) => meta.memberId === ref.memberId
   const imported = (meta: RoomDeckMeta) => myDecks.some((d) => d.id === meta.deckId)
@@ -89,11 +139,30 @@ export default function RoomView() {
           </p>
         )}
 
-        <div className="mb-3.5 flex gap-2.5">
+        <div className="mb-3.5 flex flex-wrap gap-2.5">
           <button className="btn btn-primary" data-testid="room-share-deck" disabled={status !== 'live'} onClick={() => setPicking(true)}>
             🤝 Share a deck
           </button>
+          {!review && decks.length > 0 && (
+            <button className="btn btn-accent" data-testid="room-review-start" disabled={status !== 'live' || starting} onClick={() => void startGroupReview()}>
+              {starting ? '⏳ Starting…' : '🎬 Start group review'}
+            </button>
+          )}
         </div>
+
+        {review && !inReview && (
+          <div className="mb-3.5 flex items-center gap-3 rounded-[14px] bg-ink p-3.5 text-white shadow-soft">
+            <div className="min-w-0 flex-1 text-sm font-semibold">
+              🎬 Group review in progress — hosted by {review.hostName}
+              <div className="text-xs font-normal opacity-75">
+                card {review.i + 1} of {review.queue.length}
+              </div>
+            </div>
+            <button className="btn btn-accent" data-testid="room-review-join" onClick={() => setInReview(true)}>
+              ▶ Join
+            </button>
+          </div>
+        )}
 
         <div className="flex flex-col gap-2.5">
           {status === 'live' && decks.length === 0 && (
@@ -161,6 +230,10 @@ export default function RoomView() {
           />
         </div>
       </main>
+
+      {inReview && review && state && (
+        <RoomReview roomRef={ref} state={state} review={review} cache={cacheRef.current} send={send} onExit={() => setInReview(false)} />
+      )}
 
       {invite && <InviteModal name={ref.name} url={ref.url} code={ref.code} onClose={() => setInvite(false)} />}
 

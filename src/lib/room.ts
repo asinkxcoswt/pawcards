@@ -29,12 +29,23 @@ export interface RoomDeckMeta {
   at: number
 }
 
+/** live group-review state — written only by the review host via the DO */
+export interface RoomReviewState {
+  queue: { deckId: string; cardId: string }[]
+  i: number
+  flipped: boolean
+  hostMemberId: string
+  hostName: string
+  startedAt: number
+}
+
 export interface RoomState {
   name: string
   host: string
   createdAt: number
   members: { memberId: string; name: string }[]
   decks: RoomDeckMeta[]
+  review?: RoomReviewState | null
 }
 
 export type RoomStatus = 'connecting' | 'live' | 'error'
