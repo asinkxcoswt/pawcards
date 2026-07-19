@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { encodeConfig, parseConfig, type ConfigPayload } from '../lib/qrconfig'
-import { useQrScan } from '../lib/useQrScan'
+import QrScanner from './QrScanner'
 
 interface Props {
   mode: 'show' | 'scan'
@@ -37,8 +37,8 @@ export default function QrConfigModal({ mode, variant = 'device', config, onAppl
     }).catch((e: Error) => setError('Could not draw QR: ' + e.message))
   }, [mode, config])
 
-  // scan mode: camera + decode loop, until a valid payload is found
-  const { videoRef, error: camError } = useQrScan(mode === 'scan' && !scanned, (text) => {
+  // scan mode: camera or picked image, until a valid payload is found
+  const onCode = (text: string) => {
     try {
       setScanned(parseConfig(text))
       setError('')
@@ -47,7 +47,7 @@ export default function QrConfigModal({ mode, variant = 'device', config, onAppl
       setError((e as Error).message) // wrong QR — keep scanning
       return false
     }
-  })
+  }
 
   return (
     <div
@@ -87,9 +87,10 @@ export default function QrConfigModal({ mode, variant = 'device', config, onAppl
           <>
             <h2 className="m-0 mb-1 text-[17px] font-bold">📷 Scan settings QR</h2>
             <p className="hint mb-3.5">
-              On your other device open Settings → <b>▦ Show settings QR</b>, then point this camera at it.
+              On your other device open Settings → <b>▦ Show settings QR</b>, then point this camera at it — or pick a
+              saved QR image (e.g. the deploy script's settings card).
             </p>
-            <video ref={videoRef} playsInline muted className="w-full rounded-lg bg-black" data-testid="qr-video" />
+            <QrScanner active={mode === 'scan' && !scanned} onCode={onCode} />
           </>
         )}
 
@@ -126,7 +127,7 @@ export default function QrConfigModal({ mode, variant = 'device', config, onAppl
           </>
         )}
 
-        {(error || camError) && <p className="hint mt-3 text-again">{error || camError}</p>}
+        {error && <p className="hint mt-3 text-again">{error}</p>}
 
         <button className="btn btn-ghost mt-4" onClick={onClose}>
           Close

@@ -48,7 +48,9 @@ src/
                       Deck payloads stay in KV (share-…); the DO holds pointers
                       (RoomDeckMeta, keyed by deckId so re-share replaces).
                       First connector names the room + becomes host.
-  lib/useQrScan.ts    camera + jsQR decode loop hook (used by all scanners)
+  lib/useQrScan.ts    camera decode loop + scanFile (decode a picked image) hook;
+                      QrScanner.tsx is the shared UI (video + "🖼 From a photo")
+                      used by ALL scanners — settings, deck import, room join
   components/         Home, DeckView, Editor (drawing engine), Review, SettingsModal,
                       DeckModal, CardThumb, ConfirmButton (tap-again pattern), Toast,
                       QrConfigModal (show/scan settings QR; in-app scanner because the

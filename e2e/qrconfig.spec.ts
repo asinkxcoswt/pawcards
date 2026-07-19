@@ -36,6 +36,47 @@ test('settings QR renders and decodes back to the device config', async ({ page 
   expect(cfg.provider).toBe('local')
 })
 
+test('scan from a photo: device A\'s QR image imports on device B (full loop, no camera)', async ({ browser }) => {
+  // device A renders its settings QR
+  const A = await (await browser.newContext()).newPage()
+  await openSettings(A)
+  await A.getByTestId('qr-show').click()
+  const canvas = A.getByTestId('qr-canvas')
+  await expect(canvas).toBeVisible()
+  const dataUrl = await canvas.evaluate((el) => (el as HTMLCanvasElement).toDataURL('image/png'))
+  const png = Buffer.from(dataUrl.split(',')[1], 'base64')
+
+  // device B picks that image in the scanner instead of using a camera
+  const B = await (await browser.newContext()).newPage()
+  await resetApp(B)
+  await B.getByTitle('Settings').click()
+  await B.getByTestId('qr-scan').click()
+  await B.getByTestId('qr-file-input').setInputFiles({ name: 'settings-qr.png', mimeType: 'image/png', buffer: png })
+
+  await expect(B.getByTestId('qr-summary')).toBeVisible({ timeout: 5000 })
+  await B.getByTestId('qr-apply').click()
+  expect(await store<string>(B, 's => s.settings.syncUrl')).toBe('https://paw.e2e.workers.dev/?key=sync')
+  expect(await store<string>(B, 's => s.settings.syncId')).toBe('paw-e2e-qr-0001')
+
+  // a photo without any QR gives a friendly error and keeps the scanner open
+  // (the settings modal is still open after applying)
+  await B.getByTestId('qr-scan').click()
+  const blank = await B.evaluate(() => {
+    const cv = document.createElement('canvas')
+    cv.width = 200
+    cv.height = 200
+    cv.getContext('2d')!.fillStyle = '#fff'
+    cv.getContext('2d')!.fillRect(0, 0, 200, 200)
+    return cv.toDataURL('image/png')
+  })
+  await B.getByTestId('qr-file-input').setInputFiles({
+    name: 'nothing.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(blank.split(',')[1], 'base64'),
+  })
+  await expect(B.getByText(/No QR code found/)).toBeVisible()
+})
+
 test('settings fields save in real time — no Save button', async ({ page }) => {
   await resetApp(page)
   await page.getByTitle('Settings').click()

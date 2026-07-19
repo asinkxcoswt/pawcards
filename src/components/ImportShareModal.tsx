@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../store'
-import { useQrScan } from '../lib/useQrScan'
 import { fetchSharedDeck, parseShareQr, type DeckShareQr, type ShareDoc } from '../lib/share'
+import QrScanner from './QrScanner'
 
 /** Scan a friend's deck-share QR, preview it, and import it into the library. */
 export default function ImportShareModal({ onClose }: { onClose: () => void }) {
@@ -11,7 +11,7 @@ export default function ImportShareModal({ onClose }: { onClose: () => void }) {
   const [share, setShare] = useState<ShareDoc | null>(null)
   const [fetching, setFetching] = useState(false)
 
-  const { videoRef, error: camError } = useQrScan(!qr, (text) => {
+  const onCode = (text: string) => {
     try {
       const p = parseShareQr(text)
       setQr(p)
@@ -26,7 +26,7 @@ export default function ImportShareModal({ onClose }: { onClose: () => void }) {
       setError((e as Error).message) // wrong QR — keep scanning
       return false
     }
-  })
+  }
 
   const doImport = () => {
     if (!share) return
@@ -42,8 +42,10 @@ export default function ImportShareModal({ onClose }: { onClose: () => void }) {
         {!qr && (
           <>
             <h2 className="m-0 mb-1 text-[17px] font-bold">🤝 Import a shared deck</h2>
-            <p className="hint mb-3.5">Point the camera at a friend's deck QR (they tap 🤝 Share inside their deck).</p>
-            <video ref={videoRef} playsInline muted className="w-full rounded-lg bg-black" data-testid="import-video" />
+            <p className="hint mb-3.5">
+              Point the camera at a friend's deck QR (they tap 🤝 Share inside their deck) — or pick a saved QR image.
+            </p>
+            <QrScanner active={!qr} onCode={onCode} />
           </>
         )}
 
@@ -87,7 +89,7 @@ export default function ImportShareModal({ onClose }: { onClose: () => void }) {
           </>
         )}
 
-        {(error || camError) && <p className="hint mt-3 text-again">{error || camError}</p>}
+        {error && <p className="hint mt-3 text-again">{error}</p>}
 
         <button className="btn btn-ghost mt-4" onClick={onClose}>
           Close

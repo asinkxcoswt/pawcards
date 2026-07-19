@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useStore } from '../store'
 import { syncConfigured } from '../lib/sync'
-import { useQrScan } from '../lib/useQrScan'
 import { newMemberId, newRoomCode, parseRoomQr, type RoomQr } from '../lib/room'
 import { now } from '../lib/constants'
+import QrScanner from './QrScanner'
 
 /**
  * Home-screen section: joined rooms + create/join entry points.
@@ -106,7 +106,7 @@ function JoinRoomModal({ onClose }: { onClose: () => void }) {
   const [nickname, setNickname] = useState(settings.nickname)
   const [error, setError] = useState('')
 
-  const { videoRef, error: camError } = useQrScan(!qr, (text) => {
+  const onCode = (text: string) => {
     try {
       setQr(parseRoomQr(text))
       setError('')
@@ -115,7 +115,7 @@ function JoinRoomModal({ onClose }: { onClose: () => void }) {
       setError((e as Error).message)
       return false
     }
-  })
+  }
 
   const join = () => {
     if (!qr) return
@@ -141,8 +141,10 @@ function JoinRoomModal({ onClose }: { onClose: () => void }) {
         {!qr && (
           <>
             <h2 className="m-0 mb-1 text-[17px] font-bold">📷 Join a room</h2>
-            <p className="hint mb-3.5">Scan the room's invite QR (the host taps “Invite” inside the room).</p>
-            <video ref={videoRef} playsInline muted className="w-full rounded-lg bg-black" />
+            <p className="hint mb-3.5">
+              Scan the room's invite QR (the host taps “Invite” inside the room) — or pick a saved QR image.
+            </p>
+            <QrScanner active={!qr} onCode={onCode} />
           </>
         )}
         {qr && (
@@ -160,7 +162,7 @@ function JoinRoomModal({ onClose }: { onClose: () => void }) {
             </div>
           </>
         )}
-        {(error || camError) && <p className="hint mt-3 text-again">{error || camError}</p>}
+        {error && <p className="hint mt-3 text-again">{error}</p>}
         {!qr && (
           <button className="btn btn-ghost mt-4" onClick={onClose}>
             Close
