@@ -124,20 +124,20 @@ test('sync button shows loading state and updates status line', async ({ browser
   await expect(page.getByTestId('sync-status')).toContainText('Last synced')
 })
 
-test('floating sync button: appears on edit, syncs on tap, then disappears', async ({ browser }) => {
+test('backgrounding the app pushes pending edits (no manual button needed)', async ({ browser }) => {
   stored = null
   const page = await device(browser)
-  // freshly opened, nothing edited → no button
-  await expect(page.getByTestId('sync-fab')).toHaveCount(0)
-
   await page.getByText('＋ New deck').click()
-  await page.getByPlaceholder('Deck name').fill('Dirty deck')
+  await page.getByPlaceholder('Deck name').fill('Auto deck')
   await page.keyboard.press('Enter')
-  await expect(page.getByTestId('sync-fab')).toBeVisible()
 
-  await page.getByTestId('sync-fab').click()
-  await expect(page.getByTestId('sync-fab')).toHaveCount(0)
-  expect(stored).toContain('Dirty deck')
+  // simulate the app going to the background → visibilitychange handler pushes
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  await expect.poll(() => stored).not.toBeNull()
+  expect(stored).toContain('Auto deck')
 })
 
 test('Sync ID is prefilled on first run; New ID needs a confirming second tap', async ({ page }) => {

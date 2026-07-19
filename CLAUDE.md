@@ -60,7 +60,6 @@ src/
                       DeckModal, CardThumb, ConfirmButton (tap-again pattern), Toast,
                       QrConfigModal (show/scan settings QR; in-app scanner because the
                       iOS PWA can't be deep-linked from the native camera),
-                      SyncFab (floating "☁ Sync changes" button when dirty),
                       ShareDeckModal (🤝 in DeckView: nickname → upload → QR),
                       ImportShareModal (🤝 on Home: scan → preview → import;
                       imported decks get deck.sharedBy + 🤝 badge),
@@ -138,15 +137,17 @@ Friends get their own Cloudflare account + worker URL rather than a shared one.
 - **Every card mutation must set `updated: now()`** (the `touch` helper in
   store.ts) and **every delete must tombstone** — this discipline is what makes
   sync correct. If you add a mutation, keep it.
-- Sync triggers: on app open, on visibilitychange→hidden, and manually —
-  Settings → "☁ Sync now" (⏳ loading state) or the floating "☁ Sync changes"
-  button (`SyncFab`, home/deck screens only). The 30s-after-edit auto-sync was
-  removed at Khaan's request (v3.1): a `dirty` flag in the store (set by
-  content mutations, cleared on successful push, recomputed from timestamps vs
-  `lastSyncAt` on load) drives the floating button instead.
+- Sync triggers: on app open (pull+push) and on visibilitychange→hidden
+  (push), plus manual Settings → "☁ Sync now" (⏳ loading state, shows
+  last-synced). No timer, no floating button: the 30s-after-edit auto-sync was
+  removed v3.1, and the `dirty`-flag floating SyncFab was removed v3.4 at
+  Khaan's request (single-device users found the nag pointless — open+hide
+  already back everything up; the Settings button is the multi-device escape
+  hatch). If you re-add an "unsynced" indicator, recompute from card/deck/room
+  timestamps vs `lastSyncAt`, don't resurrect a stored flag.
 - Settings save in real time (no Save button since v3.1); emptied
-  apiUrl/model/prompt fields restore their defaults on blur. Settings changes
-  don't mark the doc dirty (settings never sync).
+  apiUrl/model/prompt fields restore their defaults on blur. Settings never
+  sync (per-device).
 - **Rooms**: `Doc.rooms` (RoomRef: code/url/memberId) DOES sync — per-code
   newest-wins union in mergeRemote; leaving tombstones the room code. Live
   room state is PUSHED over a WebSocket to the room's Durable Object (v3.2 —

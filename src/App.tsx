@@ -8,7 +8,6 @@ import DeckView from './components/DeckView'
 import Editor from './components/Editor'
 import Review from './components/Review'
 import RoomView from './components/RoomView'
-import SyncFab from './components/SyncFab'
 import Toast from './components/Toast'
 
 export default function App() {
@@ -63,7 +62,6 @@ export default function App() {
       {screen === 'editor' && <Editor />}
       {screen === 'review' && <Review />}
       {screen === 'room' && <RoomView />}
-      <SyncFab />
       <Toast />
       {updateTo && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(30,25,18,.4)]">
