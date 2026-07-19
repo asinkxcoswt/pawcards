@@ -39,8 +39,11 @@ src/
   lib/prompts.ts      describePrompt (SD/Flux) vs instructPrompt (Gemini/OpenAI)
   lib/polish.ts       three providers, txt2img ONLY (img2img was removed — see History)
   lib/canvas.ts       stroke render, bg-image cover draw, Thai-aware canvas text (thumbs only)
+  lib/qrconfig.ts     encode/parse the settings-transfer QR payload (AI + sync config)
   components/         Home, DeckView, Editor (drawing engine), Review, SettingsModal,
-                      DeckModal, CardThumb, ConfirmButton (tap-again pattern), Toast
+                      DeckModal, CardThumb, ConfirmButton (tap-again pattern), Toast,
+                      QrConfigModal (show/scan settings QR; in-app scanner because the
+                      iOS PWA can't be deep-linked from the native camera)
 worker/               Cloudflare Worker (generation + translation + sync) — source of
                       truth currently deploys from the littlepawcraft repo, copy kept here
 e2e/  tests/          Playwright specs / bun unit tests

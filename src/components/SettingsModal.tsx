@@ -4,7 +4,9 @@ import { APP_VERSION } from '../lib/constants'
 import { defaultSettings, providerDefaults } from '../lib/settings'
 import { syncConfigured } from '../lib/sync'
 import type { Provider } from '../lib/types'
+import type { ConfigPayload } from '../lib/qrconfig'
 import ConfirmButton from './ConfirmButton'
+import QrConfigModal from './QrConfigModal'
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const settings = useStore((s) => s.settings)
@@ -20,7 +22,21 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
     settings.syncUrl || (settings.provider === 'local' && /https:/.test(settings.apiUrl) ? settings.apiUrl : ''),
   )
   const [syncId, setSyncId] = useState(settings.syncId)
+  const [qrMode, setQrMode] = useState<'show' | 'scan' | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const applyScanned = (cfg: ConfigPayload) => {
+    setProvider(cfg.provider)
+    setApiKey(cfg.apiKey)
+    setApiUrl(cfg.apiUrl)
+    setModel(cfg.model)
+    setPrompt(cfg.prompt)
+    setSyncUrl(cfg.syncUrl)
+    setSyncId(cfg.syncId)
+    saveSettings(cfg)
+    setQrMode(null)
+    showToast('Settings applied from QR')
+  }
 
   const changeProvider = (p: Provider) => {
     setProvider(p)
@@ -172,6 +188,21 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               : 'Never synced on this device.'}
         </p>
 
+        <hr className="my-4.5 border-0 border-t border-line" />
+        <h2 className="m-0 mb-1 text-[17px] font-bold">📱 Move settings to another device</h2>
+        <p className="hint mb-3.5">
+          Show a QR code with this device's AI + sync configuration, then scan it from PawCards on the other device.
+          The code includes your API key and Sync ID — only show it to your own devices.
+        </p>
+        <div className="flex gap-2.5">
+          <button className="btn" data-testid="qr-show" onClick={() => setQrMode('show')}>
+            ▦ Show settings QR
+          </button>
+          <button className="btn" data-testid="qr-scan" onClick={() => setQrMode('scan')}>
+            📷 Scan settings QR
+          </button>
+        </div>
+
         <div className="mt-4 flex gap-2.5">
           <button
             className="btn btn-primary"
@@ -202,6 +233,22 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         />
         <p className="hint mt-3.5 text-center">PawCards v{APP_VERSION} 🐾</p>
       </div>
+      {qrMode && (
+        <QrConfigModal
+          mode={qrMode}
+          config={{
+            provider,
+            apiKey: apiKey.trim(),
+            apiUrl: apiUrl.trim() || providerDefaults(provider).apiUrl,
+            model: model.trim() || providerDefaults(provider).model,
+            prompt: prompt.trim() || defaultSettings().prompt,
+            syncUrl: syncUrl.trim(),
+            syncId: syncId.trim(),
+          }}
+          onApply={applyScanned}
+          onClose={() => setQrMode(null)}
+        />
+      )}
     </div>
   )
 }
