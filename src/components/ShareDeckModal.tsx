@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { useStore } from '../store'
 import { encodeShareQr, shareableCards, uploadDeckShare, type DeckShareQr } from '../lib/share'
+import QrShareButton from './QrShareButton'
 
 /**
  * Share one deck with friends: uploads the deck (incl. images) to the user's
@@ -122,8 +123,9 @@ export default function ShareDeckModal({ deckId, onClose }: { deckId: string; on
               Friends: open PawCards → tap 🤝 on the home screen → scan this code. The link expires after 60 days.
               Anyone with this code can also use your Worker, so share it within your group only.
             </p>
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center">
               <canvas ref={canvasRef} className="rounded-lg" data-testid="share-qr-canvas" />
+              <QrShareButton canvasRef={canvasRef} filename={`pawcards-${deck.name}.png`} title={`PawCards deck: ${deck.name}`} />
             </div>
           </>
         )}

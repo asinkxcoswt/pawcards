@@ -22,6 +22,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
     settings.syncUrl || (settings.provider === 'local' && /https:/.test(settings.apiUrl) ? settings.apiUrl : ''),
   )
   const [syncId, setSyncId] = useState(settings.syncId)
+  const [nickname, setNickname] = useState(settings.nickname)
   const [qrMode, setQrMode] = useState<'show' | 'scan' | null>(null)
   const [qrShare, setQrShare] = useState<'device' | 'friend'>('device')
   const [qrMenu, setQrMenu] = useState(false)
@@ -290,6 +291,24 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               ? 'Last synced: ' + new Date(settings.lastSyncAt).toLocaleString()
               : 'Never synced on this device.'}
         </p>
+
+        <hr className="my-4.5 border-0 border-t border-line" />
+        <h2 className="m-0 mb-1 text-[17px] font-bold">🤝 Sharing</h2>
+        <p className="hint mb-3.5">The name friends see on decks and in rooms you share.</p>
+        <div className="mb-3">
+          <label className="field-label">Your nickname</label>
+          <input
+            className="field-input"
+            placeholder="e.g. Khaan"
+            maxLength={24}
+            value={nickname}
+            data-testid="nickname-input"
+            onChange={(e) => {
+              setNickname(e.target.value)
+              saveSettings({ nickname: e.target.value.trim() })
+            }}
+          />
+        </div>
 
         <hr className="my-4.5 border-0 border-t border-line" />
         <h2 className="m-0 mb-1 text-[17px] font-bold">💾 Backup</h2>

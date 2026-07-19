@@ -77,6 +77,27 @@ test('scan from a photo: device A\'s QR image imports on device B (full loop, no
   await expect(B.getByText(/No QR code found/)).toBeVisible()
 })
 
+test('settings QR has a Share/Save button; desktop path downloads the image', async ({ page }) => {
+  await openSettings(page)
+  await page.getByTestId('qr-show').click()
+  await expect(page.getByTestId('qr-canvas')).toBeVisible()
+  // headless has no Web Share file support → falls back to a download
+  const download = page.waitForEvent('download')
+  await page.getByTestId('qr-share-btn').click()
+  expect((await download).suggestedFilename()).toBe('pawcards-settings-qr.png')
+})
+
+test('nickname is editable in settings and saves in real time', async ({ page }) => {
+  await resetApp(page)
+  await page.getByTitle('Settings').click()
+  await page.getByTestId('nickname-input').fill('Khaan')
+  await expect.poll(() => store<string>(page, 's => s.settings.nickname')).toBe('Khaan')
+  // reopening shows the saved value
+  await page.getByTestId('settings-close').click()
+  await page.getByTitle('Settings').click()
+  await expect(page.getByTestId('nickname-input')).toHaveValue('Khaan')
+})
+
 test('settings fields save in real time — no Save button', async ({ page }) => {
   await resetApp(page)
   await page.getByTitle('Settings').click()

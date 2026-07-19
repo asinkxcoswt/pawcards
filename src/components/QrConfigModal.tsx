@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { encodeConfig, parseConfig, type ConfigPayload } from '../lib/qrconfig'
 import QrScanner from './QrScanner'
+import QrShareButton from './QrShareButton'
 
 interface Props {
   mode: 'show' | 'scan'
@@ -77,8 +78,9 @@ export default function QrConfigModal({ mode, variant = 'device', config, onAppl
                 </>
               )}
             </p>
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center">
               <canvas ref={canvasRef} className="rounded-lg" data-testid="qr-canvas" />
+              <QrShareButton canvasRef={canvasRef} filename="pawcards-settings-qr.png" title="PawCards settings" />
             </div>
           </>
         )}

@@ -4,6 +4,7 @@ import { useStore } from '../store'
 import { encodeRoomQr, fetchRoomDeck, ROOM_PROTO, shareDeckToRoom, unshareDeckFromRoom, useRoom, type RoomDeckMeta } from '../lib/room'
 import { shareableCards, type ShareDoc } from '../lib/share'
 import ConfirmButton from './ConfirmButton'
+import QrShareButton from './QrShareButton'
 import RoomReview from './RoomReview'
 
 /**
@@ -346,8 +347,9 @@ function InviteModal({ name, url, code, onClose }: { name: string; url: string; 
           Friends: PawCards → 🏫 Rooms → 📷 Join → scan this. Anyone with this code can use the room's worker, so keep
           it within your group.
         </p>
-        <div className="flex justify-center">
+        <div className="flex flex-col items-center">
           <canvas ref={canvasRef} className="rounded-lg" data-testid="room-qr-canvas" />
+          <QrShareButton canvasRef={canvasRef} filename={`pawcards-room-${name}.png`} title={`Join my PawCards room: ${name}`} />
         </div>
         {error && <p className="hint mt-3 text-again">{error}</p>}
         <button className="btn btn-ghost mt-4" onClick={onClose}>
