@@ -23,6 +23,8 @@ export interface RoomDeckMeta {
   deckId: string
   name: string
   by: string
+  /** sharer's member id (stamped by the room DO) — only they can re-share/unshare */
+  memberId?: string
   count: number
   at: number
 }
@@ -151,8 +153,9 @@ export function useRoom(
 }
 
 /**
- * Share a deck into a room: full payload (with images) goes to KV on the
- * room's worker like any deck share; the room socket announces the pointer.
+ * Share (or re-share, replacing by deckId) a deck into a room: full payload
+ * (with images) goes to KV on the room's worker like any deck share; the
+ * room socket announces the pointer. Re-share after editing = same call.
  */
 export async function shareDeckToRoom(
   roomUrl: string,
@@ -164,6 +167,11 @@ export async function shareDeckToRoom(
   const qr = await uploadDeckShare(roomUrl, by, deck, cards)
   const meta: RoomDeckMeta = { shareId: qr.id, deckId: deck.id, name: deck.name, by, count: cards.length, at: Date.now() }
   send({ type: 'share-deck', meta })
+}
+
+/** Remove your own deck from the room (the DO enforces sharer-only). */
+export function unshareDeckFromRoom(deckId: string, send: (msg: object) => void): void {
+  send({ type: 'remove-deck', deckId })
 }
 
 /** Fetch a room deck's full payload (from the room worker's KV) for import. */

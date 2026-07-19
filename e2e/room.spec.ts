@@ -54,10 +54,20 @@ async function wire(page: Page) {
     room.conns.push(conn)
     ws.onMessage((msg) => {
       const m = JSON.parse(msg as string)
+      type Meta = { deckId: string; memberId?: string }
       if (m.type === 'share-deck') {
-        const i = room.decks.findIndex((d) => (d as { deckId: string }).deckId === m.meta.deckId)
-        if (i >= 0) room.decks[i] = m.meta
-        else room.decks.push(m.meta)
+        const meta = { ...m.meta, memberId } // DO stamps the sharer
+        const i = room.decks.findIndex((d) => (d as Meta).deckId === meta.deckId)
+        if (i >= 0) {
+          if ((room.decks[i] as Meta).memberId !== memberId) return
+          room.decks[i] = meta
+        } else room.decks.push(meta)
+        broadcast()
+      }
+      if (m.type === 'remove-deck') {
+        const entry = room.decks.find((d) => (d as Meta).deckId === m.deckId)
+        if (!entry || (entry as Meta).memberId !== memberId) return
+        room.decks = room.decks.filter((d) => d !== entry)
         broadcast()
       }
     })
@@ -148,7 +158,30 @@ test('room: live create, share, join, import, leave', async ({ browser }) => {
   await expect(B.locator('#toast')).toContainText('Imported', { timeout: 5000 })
   expect(await store<string>(B, 's => s.decks[0].sharedBy')).toBe('Khaan')
   expect(await store<number>(B, 's => s.cards.length')).toBe(1)
-  await expect(B.getByTestId('room-deck-' + deckId)).toContainText('In library')
+  await expect(B.getByTestId('room-deck-' + deckId)).toContainText('Update')
+
+  /* ---- A edits the deck and re-shares; B sees the new count and updates ---- */
+  await A.evaluate((deckId) => {
+    const w = window as any
+    const t = Date.now()
+    w.__store.setState({
+      cards: [
+        ...w.__store.getState().cards,
+        { id: 'c-new', deckId, created: t, updated: t, front: [], back: [], backText: 'lemongrass', srs: null, polished: {} },
+      ],
+    })
+  }, deckId)
+  await A.getByTestId('room-reshare-' + deckId).click()
+  await expect(B.getByTestId('room-deck-' + deckId)).toContainText('2 cards', { timeout: 5000 }) // pushed live
+  await B.getByTestId('room-update-' + deckId).click()
+  await expect(B.locator('#toast')).toContainText('updated', { timeout: 5000 })
+  expect(await store<number>(B, 's => s.cards.length')).toBe(2)
+
+  /* ---- A unshares: the row vanishes for B, but B's imported copy stays ---- */
+  await A.getByText('✕', { exact: true }).click()
+  await A.getByText('✕ Sure?').click()
+  await expect(B.getByTestId('room-deck-' + deckId)).toHaveCount(0, { timeout: 5000 })
+  expect(await store<number>(B, 's => s.cards.length')).toBe(2)
 
   /* ---- B leaves: chip gone, deck stays, A sees B disappear ---- */
   await B.getByText('‹').click()

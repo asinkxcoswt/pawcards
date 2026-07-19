@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { useStore } from '../store'
-import { encodeRoomQr, fetchRoomDeck, shareDeckToRoom, useRoom, type RoomDeckMeta } from '../lib/room'
+import { encodeRoomQr, fetchRoomDeck, shareDeckToRoom, unshareDeckFromRoom, useRoom, type RoomDeckMeta } from '../lib/room'
 import ConfirmButton from './ConfirmButton'
 
 /**
@@ -23,14 +23,18 @@ export default function RoomView() {
 
   if (!ref) return null
 
-  const doImport = async (meta: RoomDeckMeta) => {
+  const doImport = async (meta: RoomDeckMeta, updating = false) => {
     setBusyDeck(meta.deckId)
     try {
       const share = await fetchRoomDeck(ref.url, meta)
       const n = importSharedDeck(share)
-      showToast(`🤝 Imported “${share.deck.name}” — ${n} cards from ${share.by}`)
+      showToast(
+        updating
+          ? `↻ “${share.deck.name}” updated from ${share.by} — now ${n} cards`
+          : `🤝 Imported “${share.deck.name}” — ${n} cards from ${share.by}`,
+      )
     } catch (e) {
-      showToast('Import failed: ' + (e as Error).message)
+      showToast((updating ? 'Update' : 'Import') + ' failed: ' + (e as Error).message)
     } finally {
       setBusyDeck('')
     }
@@ -52,6 +56,8 @@ export default function RoomView() {
     }
   }
 
+  /** shared by me (from this room membership) — I can re-share and unshare */
+  const mine = (meta: RoomDeckMeta) => meta.memberId === ref.memberId
   const imported = (meta: RoomDeckMeta) => myDecks.some((d) => d.id === meta.deckId)
   const shareable = myDecks.filter((d) => !d.sharedBy)
   const decks = state?.decks ?? []
@@ -101,10 +107,41 @@ export default function RoomView() {
                   {m.count} card{m.count === 1 ? '' : 's'} · by {m.by}
                 </div>
               </div>
-              {imported(m) ? (
-                <button className="btn" onClick={() => openDeck(m.deckId)}>
-                  ✓ In library
-                </button>
+              {mine(m) ? (
+                <>
+                  <button
+                    className="btn"
+                    title="Upload the current cards again — friends can then tap Update"
+                    disabled={busyDeck === m.deckId}
+                    data-testid={'room-reshare-' + m.deckId}
+                    onClick={() => void doShare(m.deckId)}
+                  >
+                    {busyDeck === m.deckId ? '⏳' : '↻ Re-share'}
+                  </button>
+                  <ConfirmButton
+                    className="btn text-again"
+                    label="✕"
+                    armedLabel="✕ Sure?"
+                    title="Remove this deck from the room"
+                    toastMsg="Tap again to remove it from the room — friends keep what they already imported"
+                    onConfirm={() => unshareDeckFromRoom(m.deckId, send)}
+                  />
+                </>
+              ) : imported(m) ? (
+                <>
+                  <button
+                    className="btn"
+                    title="Fetch the sharer's latest version into your copy"
+                    disabled={busyDeck === m.deckId}
+                    data-testid={'room-update-' + m.deckId}
+                    onClick={() => void doImport(m, true)}
+                  >
+                    {busyDeck === m.deckId ? '⏳' : '↻ Update'}
+                  </button>
+                  <button className="btn" onClick={() => openDeck(m.deckId)}>
+                    Open
+                  </button>
+                </>
               ) : (
                 <button className="btn btn-primary" disabled={busyDeck === m.deckId} data-testid={'room-import-' + m.deckId} onClick={() => void doImport(m)}>
                   {busyDeck === m.deckId ? '⏳' : '⬇ Import'}

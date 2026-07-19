@@ -226,13 +226,35 @@ export class PawRoom {
   async webSocketMessage(ws, msg) {
     let m;
     try { m = JSON.parse(msg); } catch { return; }
+    let a;
+    try { a = ws.deserializeAttachment() || {}; } catch { a = {}; }
+
     if (m.type === "share-deck" && m.meta && typeof m.meta.deckId === "string") {
       const decks = (await this.state.storage.get("decks")) || [];
-      const i = decks.findIndex((d) => d.deckId === m.meta.deckId);
-      if (i >= 0) decks[i] = m.meta; else decks.push(m.meta);
+      // the DO stamps the sharer — clients can't spoof someone else's share
+      const meta = { ...m.meta, memberId: a.memberId };
+      const i = decks.findIndex((d) => d.deckId === meta.deckId);
+      if (i >= 0) {
+        // only the original sharer may replace their entry (re-share = update)
+        if (decks[i].memberId && decks[i].memberId !== a.memberId) return;
+        decks[i] = meta;
+      } else {
+        decks.push(meta);
+      }
       await this.state.storage.put("decks", decks);
       await this.state.storage.setAlarm(Date.now() + ROOM_TTL_MS);
       await this.broadcast();
+    }
+
+    if (m.type === "remove-deck" && typeof m.deckId === "string") {
+      const decks = (await this.state.storage.get("decks")) || [];
+      const entry = decks.find((d) => d.deckId === m.deckId);
+      if (!entry) return;
+      if (entry.memberId && entry.memberId !== a.memberId) return; // sharer-only
+      await this.state.storage.put("decks", decks.filter((d) => d.deckId !== m.deckId));
+      await this.state.storage.setAlarm(Date.now() + ROOM_TTL_MS);
+      await this.broadcast();
+      // the share-… payload in KV is left to its 60-day TTL
     }
   }
 

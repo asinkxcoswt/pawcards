@@ -46,8 +46,12 @@ src/
                       worker (wss://…/room/<code>), one DO per room, pushes full
                       state on every change (useRoom hook, auto-reconnect).
                       Deck payloads stay in KV (share-…); the DO holds pointers
-                      (RoomDeckMeta, keyed by deckId so re-share replaces).
-                      First connector names the room + becomes host.
+                      (RoomDeckMeta, keyed by deckId so re-share replaces; the
+                      DO stamps memberId — only the sharer can re-share/unshare,
+                      "remove-deck" msg). Row actions: mine → Re-share/✕,
+                      imported → Update/Open, else Import. Unshare leaves the
+                      KV payload to its TTL. First connector names the room +
+                      becomes host.
   lib/useQrScan.ts    camera decode loop + scanFile (decode a picked image) hook;
                       QrScanner.tsx is the shared UI (video + "🖼 From a photo")
                       used by ALL scanners — settings, deck import, room join
