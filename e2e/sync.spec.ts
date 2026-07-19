@@ -127,7 +127,7 @@ test('sync button shows loading state and updates status line', async ({ browser
       route.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"none"}' })
     else route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"updatedAt":1}' })
   })
-  await page.locator('.iconbtn', { hasText: '⚙︎' }).click()
+  await page.getByTitle('Settings').click()
   await page.getByTestId('sync-now').click()
   await expect(page.getByTestId('sync-now')).toContainText('Syncing…')
   await expect(page.getByTestId('sync-now')).toBeDisabled()
@@ -138,7 +138,7 @@ test('sync button shows loading state and updates status line', async ({ browser
 test('backgrounding the app pushes pending edits (no manual button needed)', async ({ browser }) => {
   stored = null
   const page = await device(browser)
-  await page.getByText('＋ New deck').click()
+  await page.getByTestId('new-deck').click()
   await page.getByPlaceholder('Deck name').fill('Auto deck')
   await page.keyboard.press('Enter')
 
@@ -156,14 +156,14 @@ test('Sync ID is prefilled on first run; New ID needs a confirming second tap', 
   await page.waitForFunction('window.__store && window.__store.getState().loaded')
   // a fresh install shows onboarding first — skip it to reach the app
   await page.getByTestId('onboard-skip').click()
-  await page.locator('.iconbtn', { hasText: '⚙︎' }).click()
+  await page.getByTitle('Settings').click()
 
   const idInput = page.getByPlaceholder(/tap New ID/)
   const initial = await idInput.inputValue()
   expect(initial).toMatch(/^paw-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/)
 
   // first tap only arms the button — the ID must not change yet
-  await page.getByText('🎲 New ID').click()
+  await page.getByTestId('new-sync-id').click()
   await expect(page.getByText('Tap again for a new ID')).toBeVisible()
   expect(await idInput.inputValue()).toBe(initial)
 

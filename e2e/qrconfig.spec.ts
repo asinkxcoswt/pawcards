@@ -161,3 +161,13 @@ test('combo menu → Share with friend leaves the Sync ID out', async ({ page })
   expect(cfg.syncId).toBe('')
   expect(cfg.apiUrl).toBe('https://paw.e2e.workers.dev/?key=gen')
 })
+
+test('theme switcher changes the document theme and persists', async ({ page }) => {
+  await resetApp(page, { theme: 'ink' })
+  await page.getByTitle('Settings').click()
+  await page.getByTestId('theme-paper').click()
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe('paper')
+  expect(await store<string>(page, 's => s.settings.theme')).toBe('paper')
+  await page.getByTestId('theme-ink').click()
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe('ink')
+})

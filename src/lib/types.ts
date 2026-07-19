@@ -70,6 +70,8 @@ export interface Settings {
   roomReviewCount: number
   /** the first-run welcome popup has been answered (scan or skip) */
   onboarded: boolean
+  /** visual theme (per-device) */
+  theme: 'ink' | 'paper'
 }
 
 /**

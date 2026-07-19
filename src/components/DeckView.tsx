@@ -7,6 +7,7 @@ import CardThumb from './CardThumb'
 import ConfirmButton from './ConfirmButton'
 import DeckModal from './DeckModal'
 import ShareDeckModal from './ShareDeckModal'
+import Icon from './Icon'
 
 export default function DeckView() {
   const deckId = useStore((s) => s.curDeckId)!
@@ -36,23 +37,29 @@ export default function DeckView() {
     <section className="flex h-dvh flex-col overflow-hidden">
       {selecting ? (
         <header className="flex items-center gap-2.5 px-4 pb-2.5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}>
-          <h1 className="m-0 flex-1 truncate text-[17px] font-bold tracking-tight">🔒 Choose private cards</h1>
+          <h1 className="m-0 flex flex-1 items-center gap-1.5 truncate text-[17px] font-bold tracking-tight">
+            <Icon name="lock" size={16} /> Choose private cards
+          </h1>
           <button className="btn btn-primary" data-testid="select-done" onClick={() => setSelecting(false)}>
-            ✓ Done
+            Done
           </button>
         </header>
       ) : (
         <header className="flex items-center gap-2.5 px-4 pb-2.5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}>
-          <button className="iconbtn" onClick={() => go('home')}>
-            ‹
+          <button className="iconbtn" data-testid="back" title="Back" onClick={() => go('home')}>
+            <Icon name="back" size={22} />
           </button>
-          <h1 className="m-0 flex-1 truncate text-[19px] font-bold tracking-tight">
-            {deck.name}
-            {deck.sharedBy && <span className="ml-2 text-[12px] font-semibold text-muted">🤝 {deck.sharedBy}</span>}
+          <h1 className="m-0 flex flex-1 items-center gap-2 truncate text-[19px] font-bold tracking-tight">
+            <span className="truncate">{deck.name}</span>
+            {deck.sharedBy && (
+              <span className="flex items-center gap-1 text-[12px] font-semibold text-muted">
+                <Icon name="friends" size={13} /> {deck.sharedBy}
+              </span>
+            )}
           </h1>
           {!deck.sharedBy && cards.length > 0 && (
             <button className="iconbtn" title="Choose which cards to keep private" data-testid="select-mode" onClick={() => setSelecting(true)}>
-              🔒
+              <Icon name="lock" />
             </button>
           )}
           <button
@@ -71,25 +78,32 @@ export default function DeckView() {
               setSharing(true)
             }}
           >
-            🤝
+            <Icon name="share" />
           </button>
           <button className="iconbtn" title="Rename" onClick={() => setRenaming(true)}>
-            ✎
+            <Icon name="rename" />
           </button>
-          <ConfirmButton className="iconbtn" label="🗑" title="Delete deck" onConfirm={() => deleteDeck(deckId)} toastMsg="Tap again to confirm delete" />
+          <ConfirmButton
+            className="iconbtn text-again"
+            label={<Icon name="delete" />}
+            armedLabel={<Icon name="delete" size={20} strokeWidth={2.6} />}
+            title="Delete deck"
+            onConfirm={() => deleteDeck(deckId)}
+            toastMsg="Tap again to confirm delete"
+          />
         </header>
       )}
 
       <main className="flex-1 overflow-y-auto px-4 pt-1" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}>
         {selecting ? (
           <div className="my-3.5 rounded-xl bg-accentsoft px-3.5 py-2.5 text-[13px] font-semibold text-ink">
-            Tap cards to keep them 🔒 private — they stay yours but are left out of every share.
+            Tap cards to keep them private — they stay yours but are left out of every share.
             {privateCount > 0 && <span className="font-normal text-muted"> · {privateCount} private</span>}
           </div>
         ) : (
           <div className="my-3.5 flex gap-2.5">
-            <button className="btn btn-primary" onClick={() => newCard()}>
-              ＋ New card
+            <button className="btn btn-primary" data-testid="new-card" onClick={() => newCard()}>
+              <Icon name="plus" size={16} /> New card
             </button>
             <button className="btn" disabled={!due} onClick={() => startReview(deckId)}>
               {due ? `Review (${due})` : 'Nothing due'}
@@ -121,8 +135,16 @@ export default function DeckView() {
               <span className="absolute bottom-1.5 right-2 rounded-full bg-white/85 px-1.5 py-0.5 text-[10px] font-bold text-muted">
                 {!c.srs ? 'new' : c.srs.retired ? '✓ done' : isDue(c) ? 'due' : 'in ' + fmtIv(c.srs.due - now())}
               </span>
-              {c.private && <span className="absolute left-2 top-1.5 rounded-full bg-white/85 px-1.5 py-0.5 text-[11px]" data-testid={'private-badge-' + c.id}>🔒</span>}
-              {c.polished.front && <span className="absolute right-2 top-1.5 text-[11px]">✨</span>}
+              {c.private && (
+                <span className="absolute left-2 top-1.5 flex rounded-full bg-white/85 p-1 text-ink" data-testid={'private-badge-' + c.id}>
+                  <Icon name="lock" size={12} />
+                </span>
+              )}
+              {c.polished.front && (
+                <span className="absolute right-2 top-1.5 flex rounded-full bg-white/85 p-1 text-accent">
+                  <Icon name="generate" size={12} />
+                </span>
+              )}
             </button>
           ))}
         </div>

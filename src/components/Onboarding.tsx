@@ -4,6 +4,8 @@ import { newSyncId } from '../lib/settings'
 import { SETUP_GUIDE_URL } from '../lib/constants'
 import type { ConfigPayload } from '../lib/qrconfig'
 import QrConfigModal from './QrConfigModal'
+import Icon from './Icon'
+import Logo from './Logo'
 
 /**
  * First-run welcome. Shown only on a genuinely fresh install (see App). Two
@@ -45,15 +47,17 @@ export default function Onboarding() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(30,25,18,.5)] p-4">
       <div className="w-full max-w-[420px] rounded-[20px] bg-panel p-5 shadow-soft" data-testid="onboarding">
-        <div className="mb-1 text-center text-[34px]">🐾</div>
+        <div className="mb-2 flex justify-center">
+          <Logo className="h-9" />
+        </div>
         <h2 className="m-0 mb-1 text-center text-[19px] font-bold">Welcome to PawCards</h2>
         <p className="hint mb-4 text-center">
           To generate card images and sync across devices, ask a friend who uses PawCards for a setup QR — then scan it
           here.
         </p>
         <div className="flex flex-col gap-2">
-          <button className="btn btn-primary" data-testid="onboard-scan" onClick={() => setScanning(true)}>
-            📷 Scan a setup QR
+          <button className="btn btn-primary justify-center" data-testid="onboard-scan" onClick={() => setScanning(true)}>
+            <Icon name="camera" size={16} /> Scan a setup QR
           </button>
           <button className="btn btn-ghost" data-testid="onboard-skip" onClick={() => saveSettings({ onboarded: true })}>
             Skip — I'll set up later

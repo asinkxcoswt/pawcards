@@ -21,6 +21,7 @@ export function defaultSettings(): Settings {
     nickname: '',
     roomReviewCount: 20,
     onboarded: false,
+    theme: 'ink',
   }
 }
 

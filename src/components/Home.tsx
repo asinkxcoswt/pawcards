@@ -5,6 +5,8 @@ import DeckModal from './DeckModal'
 import ImportShareModal from './ImportShareModal'
 import RoomsSection from './RoomsSection'
 import SettingsModal from './SettingsModal'
+import Icon from './Icon'
+import Logo from './Logo'
 
 export default function Home() {
   const decks = useStore((s) => s.decks)
@@ -20,13 +22,12 @@ export default function Home() {
   return (
     <section className="flex h-dvh flex-col overflow-hidden">
       <header className="flex items-center gap-2.5 px-4 pb-2.5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}>
-        <span className="text-xl">🐾</span>
-        <h1 className="m-0 flex-1 truncate text-[19px] font-bold tracking-tight">PawCards</h1>
+        <Logo className="h-7 flex-1" />
         <button className="iconbtn" title="Import a shared deck" data-testid="import-share" onClick={() => setShowImport(true)}>
-          🤝
+          <Icon name="share" />
         </button>
         <button className="iconbtn" title="Settings" onClick={() => setShowSettings(true)}>
-          ⚙︎
+          <Icon name="settings" />
         </button>
       </header>
 
@@ -72,18 +73,25 @@ export default function Home() {
                   </span>
                 )}
                 <span className="truncate text-[15px] font-bold">{d.name}</span>
-                <span className="text-xs text-muted">
+                <span className="flex items-center gap-1 text-xs text-muted">
                   {deckCards.length} card{deckCards.length === 1 ? '' : 's'}
-                  {d.sharedBy ? ` · 🤝 ${d.sharedBy}` : ''}
+                  {d.sharedBy && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <Icon name="friends" size={13} />
+                      {d.sharedBy}
+                    </>
+                  )}
                 </span>
               </button>
             )
           })}
           <button
-            className="flex min-h-24 items-center justify-center rounded-[14px] border border-dashed border-line text-sm font-semibold text-muted"
+            className="flex min-h-24 items-center justify-center gap-1.5 rounded-[14px] border border-dashed border-line text-sm font-semibold text-muted"
+            data-testid="new-deck"
             onClick={() => setShowNewDeck(true)}
           >
-            ＋ New deck
+            <Icon name="plus" size={16} /> New deck
           </button>
         </div>
       </main>

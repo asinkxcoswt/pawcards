@@ -156,7 +156,7 @@ test('group review: host drives, guest follows live, grading imports implicitly'
   await wire(A)
   await resetApp(A, { syncUrl: WORKER + '/?key=pw', syncId: 'paw-e2e-rr-1', nickname: 'Khaan' })
   await createDeckAndCard(A, 'Herbs', 'basil vs holy basil')
-  await A.getByText('‹').click()
+  await A.getByTestId('back').click()
   const deckId = await store<string>(A, 's => s.decks[0].id')
   await A.evaluate((deckId) => {
     const w = window as any
@@ -168,7 +168,7 @@ test('group review: host drives, guest follows live, grading imports implicitly'
       ],
     })
   }, deckId)
-  await A.getByText('‹').click() // → home
+  await A.getByTestId('back').click() // → home
   await A.getByTestId('room-create').click()
   await A.getByTestId('room-name').fill('Thai Cooking')
   await A.getByTestId('room-create-go').click()
@@ -235,7 +235,7 @@ test('group review: host picks a card count, app draws that many at random', asy
   await wire(A)
   await resetApp(A, { syncUrl: WORKER + '/?key=pw', syncId: 'paw-e2e-rr-2', nickname: 'Khaan' })
   await createDeckAndCard(A, 'Herbs', 'c1')
-  await A.getByText('‹').click()
+  await A.getByTestId('back').click()
   const deckId = await store<string>(A, 's => s.decks[0].id')
   // grow the deck to 4 cards
   await A.evaluate((deckId) => {
@@ -244,7 +244,7 @@ test('group review: host picks a card count, app draws that many at random', asy
     const extra = ['c2', 'c3', 'c4'].map((id) => ({ id, deckId, created: t, updated: t, front: [], back: [], backText: id, srs: null, polished: {} }))
     w.__store.setState({ cards: [...w.__store.getState().cards, ...extra] })
   }, deckId)
-  await A.getByText('‹').click()
+  await A.getByTestId('back').click()
   await A.getByTestId('room-create').click()
   await A.getByTestId('room-name').fill('Herb Quiz')
   await A.getByTestId('room-create-go').click()
@@ -273,8 +273,8 @@ test('room: live create, share, join, import, leave', async ({ browser }) => {
   await wire(A)
   await resetApp(A, { syncUrl: WORKER + '/?key=pw', syncId: 'paw-e2e-room-1' })
   await createDeckAndCard(A, 'Herbs', 'basil vs holy basil')
-  await A.getByText('‹').click() // → deck view
-  await A.getByText('‹').click() // → home
+  await A.getByTestId('back').click() // → deck view
+  await A.getByTestId('back').click() // → home
 
   await A.getByTestId('room-create').click()
   await A.getByTestId('room-name').fill('Thai Cooking')
@@ -338,13 +338,13 @@ test('room: live create, share, join, import, leave', async ({ browser }) => {
   expect(await store<number>(B, 's => s.cards.length')).toBe(2)
 
   /* ---- A unshares: the row vanishes for B, but B's imported copy stays ---- */
-  await A.getByText('✕', { exact: true }).click()
-  await A.getByText('✕ Sure?').click()
+  await A.getByTestId('room-unshare-' + deckId).click()
+  await A.getByTestId('room-unshare-' + deckId).click()
   await expect(B.getByTestId('room-deck-' + deckId)).toHaveCount(0, { timeout: 5000 })
   expect(await store<number>(B, 's => s.cards.length')).toBe(2)
 
   /* ---- B leaves: chip gone, deck stays, A sees B disappear ---- */
-  await B.getByText('‹').click()
+  await B.getByTestId('back').click()
   await expect(B.getByTestId('room-chip-' + invite.code)).toBeVisible()
   await B.getByTestId('room-chip-' + invite.code).click()
   await expect(B.getByTestId('room-members')).toContainText('Khaan', { timeout: 5000 })

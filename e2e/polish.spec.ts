@@ -27,7 +27,7 @@ test.beforeEach(async ({ page }) => {
 
 test('✨ with no answer → tender error, no API call', async ({ page }) => {
   await createDeckAndCard(page, 'X', '')
-  await page.getByText('✨ Generate').click()
+  await page.getByTestId('generate').click()
   await expect(page.locator('#toast')).toContainText('Tell me the answer first')
   await expect(page.getByPlaceholder(/key takeaway/)).toBeFocused()
 })
@@ -36,7 +36,7 @@ test('✨ generates from the answer; ink survives on top; ✕ image clears bg on
   await createDeckAndCard(page, 'X', 'osmosis moves water across membranes')
   await drawLine(page, 30, 120, 150, 140)
 
-  await page.getByText('✨ Generate').click()
+  await page.getByTestId('generate').click()
   await expect(page.locator('#toast')).toContainText('Image ready', { timeout: 5000 })
   const prompt = lastPolishBody.prompt ?? ''
   expect(prompt.startsWith('osmosis moves water')).toBe(true)
@@ -58,7 +58,7 @@ test('✨ generates from the answer; ink survives on top; ✕ image clears bg on
   expect(await store<number>(page, 's => s.cards[0].front.length')).toBe(before + 1)
 
   // ✕ image (double-tap confirm) removes bg, keeps ink
-  await page.getByText('✕ image').click()
+  await page.getByTestId('clear-image').click()
   await page.getByText('Remove?').click()
   expect(await store<boolean>(page, 's => !s.cards[0].polished.front')).toBe(true)
   expect(await store<number>(page, 's => s.cards[0].front.length')).toBe(before + 1)
@@ -90,10 +90,10 @@ test('combo menu → custom prompt generates from the typed text, not the answer
 
 test('regenerating replaces the background without touching ink', async ({ page }) => {
   await createDeckAndCard(page, 'X', 'an answer')
-  await page.getByText('✨ Generate').click()
+  await page.getByTestId('generate').click()
   await expect(page.locator('#toast')).toContainText('Image ready', { timeout: 5000 })
   await drawLine(page, 50, 50, 120, 90)
-  await page.getByText('✨ Generate').click()
+  await page.getByTestId('generate').click()
   await expect(page.locator('#toast')).toContainText('Image ready', { timeout: 5000 })
   expect(await store<number>(page, 's => s.cards[0].front.length')).toBe(1)
   expect(await store<boolean>(page, 's => !!s.cards[0].polished.front')).toBe(true)

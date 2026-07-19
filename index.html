@@ -6,11 +6,15 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="PawCards" />
-  <meta name="theme-color" content="#191919" />
+  <meta name="theme-color" content="#1a1a1a" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/pawcards-icon.png" />
-  <link rel="icon" type="image/png" href="/pawcards-icon.png" />
+  <link rel="icon" type="image/svg+xml" href="/pawcards-icon.svg" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
   <title>PawCards — draw · organize · remember</title>
+  <script>
+    try { document.documentElement.dataset.theme = localStorage.getItem('paw-theme') || 'ink' } catch (e) { document.documentElement.dataset.theme = 'ink' }
+  </script>
 </head>
 <body>
   <div id="root"></div>

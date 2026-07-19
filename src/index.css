@@ -1,20 +1,50 @@
 @import "tailwindcss";
 
 @theme {
-  --color-paper: #f6f4ef;
+  /* brand tokens — defaults = "ink" theme; overridden per data-theme below.
+     grade colours (good/hard/again/easy) stay constant across themes so the
+     SRS buttons keep their meaning. --color-marker is the highlighter accent. */
+  --color-paper: #fbfaf7;
   --color-panel: #ffffff;
-  --color-ink: #22211f;
-  --color-muted: #8a867d;
-  --color-line: #e6e2d8;
-  --color-accent: #e0663c;
-  --color-accentsoft: #fbe9e1;
+  --color-ink: #1a1a1a;
+  --color-muted: #6e6c64;
+  --color-line: #e8e6de;
+  --color-accent: #e8663c;
+  --color-accentsoft: #fbe4dc;
+  --color-marker: #ecdf4b;
   --color-good: #3f8f5f;
   --color-hard: #c98a2b;
   --color-again: #c04b3a;
   --color-easy: #3d7dbb;
-  --color-edbg: #efece5;
+  --color-edbg: #f1efe8;
   --shadow-soft: 0 1px 3px rgba(40, 35, 25, 0.08), 0 8px 24px rgba(40, 35, 25, 0.07);
   --font-thai: "Sukhumvit Set", "Thonburi", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Ink & highlighter (default) — explicit block so the switcher can toggle back to it */
+:root[data-theme="ink"] {
+  --color-paper: #fbfaf7;
+  --color-panel: #ffffff;
+  --color-ink: #1a1a1a;
+  --color-muted: #6e6c64;
+  --color-line: #e8e6de;
+  --color-accent: #e8663c;
+  --color-accentsoft: #fbe4dc;
+  --color-marker: #ecdf4b;
+  --color-edbg: #f1efe8;
+}
+
+/* Warm paper — cozy cream + clay */
+:root[data-theme="paper"] {
+  --color-paper: #f4efe6;
+  --color-panel: #fbf8f2;
+  --color-ink: #23201b;
+  --color-muted: #8a7f6e;
+  --color-line: #e7dfd1;
+  --color-accent: #d9622e;
+  --color-accentsoft: #f6e5d8;
+  --color-marker: #e7b84b;
+  --color-edbg: #eae3d6;
 }
 
 * {

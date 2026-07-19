@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { useStore } from '../store'
 
 /**
@@ -10,13 +10,15 @@ export default function ConfirmButton({
   armedLabel = '❗',
   className,
   title,
+  testId,
   toastMsg = 'Tap again to confirm',
   onConfirm,
 }: {
-  label: string
-  armedLabel?: string
+  label: ReactNode
+  armedLabel?: ReactNode
   className?: string
   title?: string
+  testId?: string
   toastMsg?: string
   onConfirm: () => void
 }) {
@@ -37,7 +39,7 @@ export default function ConfirmButton({
   }
 
   return (
-    <button className={className} title={title} onClick={click}>
+    <button className={className} title={title} data-testid={testId} onClick={click}>
       {armed ? armedLabel : label}
     </button>
   )

@@ -6,6 +6,7 @@ import { shareableCards, type ShareDoc } from '../lib/share'
 import ConfirmButton from './ConfirmButton'
 import QrShareButton from './QrShareButton'
 import RoomReview from './RoomReview'
+import Icon from './Icon'
 
 /**
  * Inside a room — live over a WebSocket to the room's Durable Object.
@@ -130,12 +131,14 @@ export default function RoomView() {
   return (
     <section className="flex h-dvh flex-col overflow-hidden">
       <header className="flex items-center gap-2.5 px-4 pb-2.5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}>
-        <button className="iconbtn" onClick={() => go('home')}>
-          ‹
+        <button className="iconbtn" data-testid="back" title="Back" onClick={() => go('home')}>
+          <Icon name="back" size={22} />
         </button>
-        <h1 className="m-0 flex-1 truncate text-[19px] font-bold tracking-tight">🏫 {ref.name}</h1>
+        <h1 className="m-0 flex flex-1 items-center gap-1.5 truncate text-[19px] font-bold tracking-tight">
+          <Icon name="room" size={18} /> <span className="truncate">{ref.name}</span>
+        </h1>
         <button className="btn" data-testid="room-invite" onClick={() => setInvite(true)}>
-          ▦ Invite
+          <Icon name="qr" size={16} /> Invite
         </button>
       </header>
 
@@ -162,11 +165,11 @@ export default function RoomView() {
 
         <div className="mb-3.5 flex flex-wrap gap-2.5">
           <button className="btn btn-primary" data-testid="room-share-deck" disabled={status !== 'live'} onClick={() => setPicking(true)}>
-            🤝 Share a deck
+            <Icon name="share" size={16} /> Share a deck
           </button>
           {!review && decks.length > 0 && (
             <button className="btn btn-accent" data-testid="room-review-start" disabled={status !== 'live' || starting} onClick={openStart}>
-              🎬 Start group review
+              <Icon name="play" size={16} /> Start group review
             </button>
           )}
         </div>
@@ -174,13 +177,15 @@ export default function RoomView() {
         {review && !inReview && (
           <div className="mb-3.5 flex items-center gap-3 rounded-[14px] bg-ink p-3.5 text-white shadow-soft">
             <div className="min-w-0 flex-1 text-sm font-semibold">
-              🎬 Group review in progress — hosted by {review.hostName}
+              <span className="flex items-center gap-1.5">
+                <Icon name="play" size={15} /> Group review in progress — hosted by {review.hostName}
+              </span>
               <div className="text-xs font-normal opacity-75">
                 card {review.i + 1} of {review.queue.length}
               </div>
             </div>
             <button className="btn btn-accent" data-testid="room-review-join" onClick={() => setInReview(true)}>
-              ▶ Join
+              <Icon name="play" size={15} /> Join
             </button>
           </div>
         )}
@@ -206,12 +211,13 @@ export default function RoomView() {
                     data-testid={'room-reshare-' + m.deckId}
                     onClick={() => void doShare(m.deckId)}
                   >
-                    {busyDeck === m.deckId ? '⏳' : '↻ Re-share'}
+                    <Icon name="refresh" size={15} className={busyDeck === m.deckId ? 'animate-spin' : ''} /> Re-share
                   </button>
                   <ConfirmButton
                     className="btn text-again"
-                    label="✕"
-                    armedLabel="✕ Sure?"
+                    testId={'room-unshare-' + m.deckId}
+                    label={<Icon name="close" />}
+                    armedLabel={<Icon name="close" size={20} strokeWidth={2.6} />}
                     title="Remove this deck from the room"
                     toastMsg="Tap again to remove it from the room — friends keep what they already imported"
                     onConfirm={() => unshareDeckFromRoom(m.deckId, send)}
@@ -226,7 +232,7 @@ export default function RoomView() {
                     data-testid={'room-update-' + m.deckId}
                     onClick={() => void doImport(m, true)}
                   >
-                    {busyDeck === m.deckId ? '⏳' : '↻ Update'}
+                    <Icon name="refresh" size={15} className={busyDeck === m.deckId ? 'animate-spin' : ''} /> Update
                   </button>
                   <button className="btn" onClick={() => openDeck(m.deckId)}>
                     Open
@@ -234,7 +240,7 @@ export default function RoomView() {
                 </>
               ) : (
                 <button className="btn btn-primary" disabled={busyDeck === m.deckId} data-testid={'room-import-' + m.deckId} onClick={() => void doImport(m)}>
-                  {busyDeck === m.deckId ? '⏳' : '⬇ Import'}
+                  <Icon name="import" size={15} className={busyDeck === m.deckId ? 'animate-spin' : ''} /> Import
                 </button>
               )}
             </div>
@@ -261,7 +267,9 @@ export default function RoomView() {
       {showStart && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-[rgba(30,25,18,.4)]" onClick={(e) => e.target === e.currentTarget && setShowStart(false)}>
           <div className="w-full max-w-[560px] rounded-t-[20px] bg-panel p-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
-            <h2 className="m-0 mb-1 text-[17px] font-bold">🎬 Start group review</h2>
+            <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold">
+              <Icon name="play" size={17} /> Start group review
+            </h2>
             <p className="hint mb-3.5">
               Randomly draw cards from the {totalShared} shared card{totalShared === 1 ? '' : 's'} across {decks.length}{' '}
               deck{decks.length === 1 ? '' : 's'}. Everyone follows your lead; grading stays private.
@@ -297,7 +305,7 @@ export default function RoomView() {
             </div>
             <div className="flex gap-2.5">
               <button className="btn btn-accent" data-testid="rr-start-go" disabled={starting} onClick={() => void startGroupReview()}>
-                {starting ? '⏳ Starting…' : '🎬 Start'}
+                <Icon name="play" size={16} className={starting ? 'animate-spin' : ''} /> {starting ? 'Starting…' : 'Start'}
               </button>
               <button className="btn btn-ghost" onClick={() => setShowStart(false)}>
                 Cancel
@@ -310,7 +318,9 @@ export default function RoomView() {
       {picking && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-[rgba(30,25,18,.4)]" onClick={(e) => e.target === e.currentTarget && setPicking(false)}>
           <div className="max-h-[70dvh] w-full max-w-[560px] overflow-y-auto rounded-t-[20px] bg-panel p-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
-            <h2 className="m-0 mb-1 text-[17px] font-bold">🤝 Share which deck?</h2>
+            <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold">
+              <Icon name="share" size={17} /> Share which deck?
+            </h2>
             <p className="hint mb-3.5">The deck (with images) uploads to the room. Re-sharing later updates it for everyone.</p>
             <div className="flex flex-col gap-2">
               {shareable.length === 0 && <p className="hint">No decks of your own yet.</p>}
@@ -342,7 +352,9 @@ function InviteModal({ name, url, code, onClose }: { name: string; url: string; 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-[rgba(30,25,18,.4)]" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="w-full max-w-[560px] rounded-t-[20px] bg-panel p-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
-        <h2 className="m-0 mb-1 text-[17px] font-bold">▦ Invite to “{name}”</h2>
+        <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold">
+          <Icon name="qr" size={17} /> Invite to “{name}”
+        </h2>
         <p className="hint mb-3.5">
           Friends: PawCards → 🏫 Rooms → 📷 Join → scan this. Anyone with this code can use the room's worker, so keep
           it within your group.

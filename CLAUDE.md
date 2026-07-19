@@ -19,7 +19,17 @@ due cards with Again/Hard/Good/Easy.
 
 - **Bun** (package manager, unit test runner) · **Vite** · **React 19** ·
   **TypeScript strict** · **Tailwind v4** (CSS-first config in `src/index.css`,
-  `@theme` tokens) · **Zustand v5** (single store)
+  `@theme` tokens) · **Zustand v5** (single store) · **lucide-react** icons
+- **Theming**: two palettes swap via `:root[data-theme="ink"|"paper"]` blocks
+  overriding the `@theme` color tokens (`--color-marker` = highlighter accent;
+  grade colours stay constant). `settings.theme` (default `ink`, per-device)
+  drives `documentElement.dataset.theme`; index.html inline script reads
+  `localStorage['paw-theme']` pre-paint to avoid a flash. Switcher in Settings.
+- **Icons**: no emoji in UI chrome — `components/Icon.tsx` maps semantic names
+  → lucide (currentColor, recolors with theme). `components/Logo.tsx` is the
+  paw wordmark. App icons/favicon generated from the paw by
+  `bun scripts/gen-icons.ts` (resvg-js). Decorative emoji in toasts/body copy
+  are fine. `ConfirmButton` label/armedLabel take ReactNode + optional testId.
 - Unit tests: `bun test tests/` (pure logic: SRS, sync merge, settings migration, prompts)
 - E2E: `bunx playwright test` (drives the real built app via the `window.__store`
   test hook; `CHROMIUM_PATH` env can point at a preinstalled Chromium)

@@ -5,6 +5,7 @@ import { HL_COLORS, PEN_COLORS, SIZES } from '../lib/constants'
 import { drawBg, frontToBlob, renderStrokes } from '../lib/canvas'
 import type { Stroke } from '../lib/types'
 import ConfirmButton from './ConfirmButton'
+import Icon from './Icon'
 
 type ToolType = 'pen' | 'hl' | 'eraser'
 
@@ -274,21 +275,21 @@ export default function Editor() {
   return (
     <section className="flex h-dvh flex-col overflow-hidden bg-edbg">
       <div className="flex items-center gap-2 px-3 pb-2" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 8px)' }}>
-        <button className="iconbtn" onClick={closeEditor}>
-          ‹
+        <button className="iconbtn" data-testid="back" title="Back" onClick={closeEditor}>
+          <Icon name="back" size={22} />
         </button>
         <div className="flex-1" />
         <div className="relative inline-flex">
-          <button className="btn rounded-r-none" onClick={() => generate()}>
-            ✨ Generate
+          <button className="btn btn-primary rounded-r-none" data-testid="generate" onClick={() => generate()}>
+            <Icon name="generate" size={16} /> Generate
           </button>
           <button
-            className="btn -ml-px rounded-l-none px-2"
+            className="btn btn-primary -ml-px rounded-l-none px-2"
             data-testid="gen-menu"
             aria-label="Generate options"
             onClick={() => setGenMenu((v) => !v)}
           >
-            ▾
+            <Icon name="caret" size={16} />
           </button>
           {genMenu && (
             <>
@@ -301,7 +302,9 @@ export default function Editor() {
                     generate()
                   }}
                 >
-                  ✨ From the answer
+                  <span className="inline-flex items-center gap-1.5">
+                    <Icon name="generate" size={15} /> From the answer
+                  </span>
                 </button>
                 <button
                   className="block w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-paper"
@@ -311,13 +314,22 @@ export default function Editor() {
                     openCustomPrompt()
                   }}
                 >
-                  ✍️ With a custom prompt…
+                  <span className="inline-flex items-center gap-1.5">
+                    <Icon name="rename" size={15} /> With a custom prompt…
+                  </span>
                 </button>
               </div>
             </>
           )}
         </div>
-        <ConfirmButton className="iconbtn text-again" label="🗑" title="Delete card" onConfirm={() => deleteCard(cardId)} toastMsg="Tap again to confirm delete" />
+        <ConfirmButton
+          className="iconbtn text-again"
+          label={<Icon name="delete" />}
+          armedLabel={<Icon name="delete" size={20} strokeWidth={2.6} />}
+          title="Delete card"
+          onConfirm={() => deleteCard(cardId)}
+          toastMsg="Tap again to confirm delete"
+        />
       </div>
 
       <div className="ed-label mx-5 mb-1 mt-1.5">Back · the answer</div>
@@ -346,14 +358,19 @@ export default function Editor() {
               }}
             />
             {polishing && (
-              <div className="absolute left-2.5 top-2.5 z-[5] rounded-full bg-[rgba(25,25,25,.8)] px-3 py-1.5 text-xs font-semibold text-white">
-                ✨ creating…
+              <div className="absolute left-2.5 top-2.5 z-[5] flex items-center gap-1.5 rounded-full bg-[rgba(25,25,25,.8)] px-3 py-1.5 text-xs font-semibold text-white">
+                <Icon name="generate" size={13} /> creating…
               </div>
             )}
             {card.polished.front && (
               <ConfirmButton
-                className="absolute right-2.5 top-2.5 z-[5] rounded-full bg-[rgba(25,25,25,.8)] px-3 py-1.5 text-xs font-bold text-white"
-                label="✕ image"
+                className="absolute right-2.5 top-2.5 z-[5] inline-flex items-center gap-1 rounded-full bg-[rgba(25,25,25,.8)] px-3 py-1.5 text-xs font-bold text-white"
+                testId="clear-image"
+                label={
+                  <>
+                    <Icon name="close" size={13} /> image
+                  </>
+                }
                 armedLabel="Remove?"
                 title="Remove the generated image (keeps your ink)"
                 toastMsg="Tap again to remove the image"
@@ -371,13 +388,13 @@ export default function Editor() {
         <div className="tool-group">
           {(
             [
-              ['pen', '✏️', 'Pen'],
-              ['hl', '🖍️', 'Highlighter'],
-              ['eraser', '⬜', 'Eraser'],
+              ['pen', 'pen', 'Pen'],
+              ['hl', 'highlighter', 'Highlighter'],
+              ['eraser', 'eraser', 'Eraser'],
             ] as const
           ).map(([t, icon, title]) => (
             <button key={t} className={'tool ' + (tool === t ? 'tool-on' : '')} title={title} onClick={() => setTool(t)}>
-              {icon}
+              <Icon name={icon} />
             </button>
           ))}
         </div>
@@ -400,21 +417,21 @@ export default function Editor() {
         </div>
         <div className="tool-group">
           <button className="tool" title="Undo" onClick={undo}>
-            ↺
+            <Icon name="undo" />
           </button>
           <button className="tool" title="Redo" onClick={redo}>
-            ↻
+            <Icon name="redo" />
           </button>
           <button className="tool" title="Clear ink" onClick={clearInk}>
-            ✕
+            <Icon name="close" />
           </button>
         </div>
         <div className="tool-group">
           <button className="tool" title="Save the front as an image" onClick={exportFront}>
-            ⤓
+            <Icon name="export" />
           </button>
           <button className="tool" title="Use an image as the card background" onClick={() => fileRef.current?.click()}>
-            📷
+            <Icon name="camera" />
           </button>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => importImage(e.target)} />
         </div>
@@ -426,7 +443,9 @@ export default function Editor() {
           onClick={(e) => e.target === e.currentTarget && setCustomOpen(false)}
         >
           <div className="w-full max-w-[560px] rounded-t-[20px] bg-panel p-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
-            <h2 className="m-0 mb-1 text-[17px] font-bold">✍️ Describe the image</h2>
+            <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold">
+              <Icon name="rename" size={17} /> Describe the image
+            </h2>
             <p className="hint mb-3.5">
               I'll draw this instead of the answer. Your polish style from Settings still applies.
             </p>
@@ -440,7 +459,7 @@ export default function Editor() {
             />
             <div className="mt-3.5 flex gap-2.5">
               <button className="btn btn-primary" data-testid="custom-prompt-go" onClick={generateCustom}>
-                ✨ Generate
+                <Icon name="generate" size={16} /> Generate
               </button>
               <button className="btn btn-ghost" onClick={() => setCustomOpen(false)}>
                 Cancel

@@ -28,10 +28,10 @@ export async function resetApp(page: Page, settings: Record<string, unknown> = {
 }
 
 export async function createDeckAndCard(page: Page, deckName: string, answer: string) {
-  await page.getByText('＋ New deck').click()
+  await page.getByTestId('new-deck').click()
   await page.getByPlaceholder('Deck name').fill(deckName)
   await page.keyboard.press('Enter')
-  await page.getByText('＋ New card').click()
+  await page.getByTestId('new-card').click()
   await page.getByPlaceholder(/key takeaway/).fill(answer)
 }
 

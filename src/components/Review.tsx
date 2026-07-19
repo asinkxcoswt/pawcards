@@ -3,6 +3,7 @@ import { useStore } from '../store'
 import { fmtIv, previewIntervals } from '../lib/srs'
 import { fontSizeTier, paintCard } from '../lib/canvas'
 import { CARD_W } from '../lib/constants'
+import Icon from './Icon'
 
 export default function Review() {
   const session = useStore((s) => s.session)
@@ -36,8 +37,8 @@ export default function Review() {
   return (
     <section className="flex h-dvh flex-col overflow-hidden">
       <header className="flex items-center gap-2.5 px-4 pb-2.5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}>
-        <button className="iconbtn" onClick={endReview}>
-          ‹
+        <button className="iconbtn" data-testid="back" title="Back" onClick={endReview}>
+          <Icon name="back" size={22} />
         </button>
         <h1 className="m-0 flex-1 truncate text-[19px] font-bold tracking-tight">
           {(session.cram ? 'Shuffle — ' : '') + deckName}

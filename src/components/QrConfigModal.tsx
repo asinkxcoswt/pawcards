@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { encodeConfig, parseConfig, type ConfigPayload } from '../lib/qrconfig'
 import QrScanner from './QrScanner'
+import Icon from './Icon'
 import QrShareButton from './QrShareButton'
 
 interface Props {
@@ -61,19 +62,20 @@ export default function QrConfigModal({ mode, variant = 'device', config, onAppl
       >
         {mode === 'show' && (
           <>
-            <h2 className="m-0 mb-1 text-[17px] font-bold">
-              {variant === 'friend' ? '🤝 Settings QR for a friend' : '▦ Settings QR'}
+            <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold">
+              <Icon name={variant === 'friend' ? 'friends' : 'qr'} size={17} />
+              {variant === 'friend' ? 'Settings QR for a friend' : 'Settings QR'}
             </h2>
             <p className="hint mb-3.5">
               {variant === 'friend' ? (
                 <>
-                  On their device: open PawCards → Settings → <b>📷 Scan settings QR</b>. Your Sync ID is left out, so
+                  On their device: open PawCards → Settings → <b>Scan settings QR</b>. Your Sync ID is left out, so
                   their cards stay separate from yours — but the code still contains your API key / worker URL, so only
                   share with someone you trust.
                 </>
               ) : (
                 <>
-                  On your other device open PawCards → Settings → <b>📷 Scan settings QR</b> and point it here. This
+                  On your other device open PawCards → Settings → <b>Scan settings QR</b> and point it here. This
                   code contains your API key and Sync ID — don't show it to anyone else.
                 </>
               )}
@@ -87,9 +89,9 @@ export default function QrConfigModal({ mode, variant = 'device', config, onAppl
 
         {mode === 'scan' && !scanned && (
           <>
-            <h2 className="m-0 mb-1 text-[17px] font-bold">📷 Scan settings QR</h2>
+            <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold"><Icon name="camera" size={17} /> Scan settings QR</h2>
             <p className="hint mb-3.5">
-              On your other device open Settings → <b>▦ Show settings QR</b>, then point this camera at it — or pick a
+              On your other device open Settings → <b>Show settings QR</b>, then point this camera at it — or pick a
               saved QR image (e.g. the deploy script's settings card).
             </p>
             <QrScanner active={mode === 'scan' && !scanned} onCode={onCode} />

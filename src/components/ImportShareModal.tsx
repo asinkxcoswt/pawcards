@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../store'
 import { fetchSharedDeck, parseShareQr, type DeckShareQr, type ShareDoc } from '../lib/share'
 import QrScanner from './QrScanner'
+import Icon from './Icon'
 
 /** Scan a friend's deck-share QR, preview it, and import it into the library. */
 export default function ImportShareModal({ onClose }: { onClose: () => void }) {
@@ -41,7 +42,7 @@ export default function ImportShareModal({ onClose }: { onClose: () => void }) {
       <div className="max-h-[85dvh] w-full max-w-[560px] overflow-y-auto rounded-t-[20px] bg-panel p-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
         {!qr && (
           <>
-            <h2 className="m-0 mb-1 text-[17px] font-bold">🤝 Import a shared deck</h2>
+            <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold"><Icon name="share" size={17} /> Import a shared deck</h2>
             <p className="hint mb-3.5">
               Point the camera at a friend's deck QR (they tap 🤝 Share inside their deck) — or pick a saved QR image.
             </p>
@@ -51,8 +52,8 @@ export default function ImportShareModal({ onClose }: { onClose: () => void }) {
 
         {qr && (fetching || (!share && !error)) && (
           <>
-            <h2 className="m-0 mb-1 text-[17px] font-bold">🤝 “{qr.name}”</h2>
-            <p className="hint mb-3.5">⬇ Fetching the deck from {qr.by}…</p>
+            <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold"><Icon name="share" size={17} /> “{qr.name}”</h2>
+            <p className="hint mb-3.5">Fetching the deck from {qr.by}…</p>
           </>
         )}
 
@@ -73,7 +74,7 @@ export default function ImportShareModal({ onClose }: { onClose: () => void }) {
             <p className="hint mb-3.5">It joins your library with a 🤝 tag; reviews and scheduling stay private to you.</p>
             <div className="flex gap-2.5">
               <button className="btn btn-primary" data-testid="import-go" onClick={doImport}>
-                ⬇ Import deck
+                <Icon name="import" size={16} /> Import deck
               </button>
               <button
                 className="btn"

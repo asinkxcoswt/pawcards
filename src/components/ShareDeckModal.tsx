@@ -3,6 +3,7 @@ import QRCode from 'qrcode'
 import { useStore } from '../store'
 import { encodeShareQr, shareableCards, uploadDeckShare, type DeckShareQr } from '../lib/share'
 import QrShareButton from './QrShareButton'
+import Icon from './Icon'
 
 /**
  * Share one deck with friends: uploads the deck (incl. images) to the user's
@@ -62,7 +63,7 @@ export default function ShareDeckModal({ deckId, onClose }: { deckId: string; on
       <div className="max-h-[85dvh] w-full max-w-[560px] overflow-y-auto rounded-t-[20px] bg-panel p-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
         {phase === 'name' && (
           <>
-            <h2 className="m-0 mb-1 text-[17px] font-bold">🤝 Share “{deck.name}”</h2>
+            <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold"><Icon name="share" size={17} /> Share “{deck.name}”</h2>
             <p className="hint mb-3.5">
               What name should friends see on this deck?
               {heldBack > 0 && (
@@ -92,7 +93,7 @@ export default function ShareDeckModal({ deckId, onClose }: { deckId: string; on
                   void upload(by)
                 }}
               >
-                ⬆ Upload &amp; show QR
+                <Icon name="upload" size={16} /> Upload &amp; show QR
               </button>
               <button className="btn btn-ghost" onClick={onClose}>
                 Cancel
@@ -103,14 +104,14 @@ export default function ShareDeckModal({ deckId, onClose }: { deckId: string; on
 
         {phase === 'uploading' && (
           <>
-            <h2 className="m-0 mb-1 text-[17px] font-bold">🤝 Share “{deck.name}”</h2>
-            <p className="hint mb-3.5">⬆ Uploading {count} cards to your Worker…</p>
+            <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold"><Icon name="share" size={17} /> Share “{deck.name}”</h2>
+            <p className="hint mb-3.5">Uploading {count} cards to your Worker…</p>
           </>
         )}
 
         {phase === 'qr' && qr && (
           <>
-            <h2 className="m-0 mb-1 text-[17px] font-bold">🤝 “{deck.name}” is ready to share</h2>
+            <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold"><Icon name="share" size={17} /> “{deck.name}” is ready to share</h2>
             <p className="hint mb-3.5">
               {heldBack > 0 && (
                 <>

@@ -7,6 +7,7 @@ import { fetchRoomDeck, type RoomReviewState, type RoomState } from '../lib/room
 import type { ShareDoc } from '../lib/share'
 import type { Card, Grade, RoomRef } from '../lib/types'
 import ConfirmButton from './ConfirmButton'
+import Icon from './Icon'
 
 interface Props {
   roomRef: RoomRef
@@ -100,8 +101,9 @@ export default function RoomReview({ roomRef, state, review, cache, send, onExit
           {isHost ? (
             <ConfirmButton
               className="iconbtn"
-              label="‹"
-              armedLabel="✕"
+              testId="back"
+              label={<Icon name="back" size={22} />}
+              armedLabel={<Icon name="close" size={20} />}
               toastMsg="Tap again to end the session for everyone"
               onConfirm={() => {
                 send({ type: 'review-end' })
@@ -109,12 +111,12 @@ export default function RoomReview({ roomRef, state, review, cache, send, onExit
               }}
             />
           ) : (
-            <button className="iconbtn" title="Leave the group review (it continues without you)" onClick={onExit}>
-              ‹
+            <button className="iconbtn" data-testid="back" title="Leave the group review (it continues without you)" onClick={onExit}>
+              <Icon name="back" size={22} />
             </button>
           )}
-          <h1 className="m-0 flex-1 truncate text-[17px] font-bold tracking-tight">
-            🎬 {meta ? `${meta.name} · by ${meta.by}` : 'Group review'}
+          <h1 className="m-0 flex flex-1 items-center gap-1.5 truncate text-[17px] font-bold tracking-tight">
+            <Icon name="play" size={16} /> <span className="truncate">{meta ? `${meta.name} · by ${meta.by}` : 'Group review'}</span>
           </h1>
           <span className="text-xs font-semibold text-muted" data-testid="rr-progress">
             {review.i + 1} / {review.queue.length}
@@ -161,7 +163,7 @@ export default function RoomReview({ roomRef, state, review, cache, send, onExit
               </div>
               {isHost && (
                 <button className="btn btn-primary" data-testid="rr-flip" onClick={() => send({ type: 'review-flip' })}>
-                  👁 Reveal
+                  <Icon name="reveal" size={16} /> Reveal
                 </button>
               )}
             </div>
@@ -192,7 +194,15 @@ export default function RoomReview({ roomRef, state, review, cache, send, onExit
                 {graded && <span className="text-[13px] text-muted">✓ noted for you</span>}
                 {isHost && (
                   <button className="btn btn-primary" data-testid="rr-next" onClick={() => send({ type: 'review-next' })}>
-                    {last ? '🏁 Finish' : 'Next ▸'}
+                    {last ? (
+                      <>
+                        <Icon name="finish" size={15} /> Finish
+                      </>
+                    ) : (
+                      <>
+                        Next <Icon name="next" size={15} />
+                      </>
+                    )}
                   </button>
                 )}
               </div>

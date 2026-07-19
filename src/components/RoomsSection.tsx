@@ -4,6 +4,7 @@ import { syncConfigured } from '../lib/sync'
 import { newMemberId, newRoomCode, parseRoomQr, type RoomQr } from '../lib/room'
 import { now } from '../lib/constants'
 import QrScanner from './QrScanner'
+import Icon from './Icon'
 
 /**
  * Home-screen section: joined rooms + create/join entry points.
@@ -21,7 +22,9 @@ export default function RoomsSection() {
     <>
       <div className="mb-4.5">
         <div className="mb-2 flex items-center gap-2">
-          <span className="text-[13px] font-bold uppercase tracking-wide text-muted">🏫 Rooms</span>
+          <span className="flex items-center gap-1.5 text-[13px] font-bold uppercase tracking-wide text-muted">
+            <Icon name="room" size={15} /> Rooms
+          </span>
           <div className="flex-1" />
           <button
             className="btn px-2.5 py-1 text-[13px]"
@@ -34,17 +37,17 @@ export default function RoomsSection() {
               setCreating(true)
             }}
           >
-            ＋ Create
+            <Icon name="plus" size={15} /> Create
           </button>
           <button className="btn px-2.5 py-1 text-[13px]" data-testid="room-join" onClick={() => setJoining(true)}>
-            📷 Join
+            <Icon name="camera" size={15} /> Join
           </button>
         </div>
         {rooms.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {rooms.map((r) => (
               <button key={r.code} className="btn" data-testid={'room-chip-' + r.code} onClick={() => openRoom(r.code)}>
-                🏫 {r.name}
+                <Icon name="room" size={15} /> {r.name}
               </button>
             ))}
           </div>
@@ -78,7 +81,9 @@ function CreateRoomModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-[rgba(30,25,18,.4)]" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="w-full max-w-[560px] rounded-t-[20px] bg-panel p-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
-        <h2 className="m-0 mb-1 text-[17px] font-bold">🏫 Create a room</h2>
+        <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold">
+          <Icon name="room" size={17} /> Create a room
+        </h2>
         <p className="hint mb-3.5">
           The room lives on your Worker for 60 days after the last activity. Friends join by scanning the invite QR.
         </p>
@@ -88,7 +93,7 @@ function CreateRoomModal({ onClose }: { onClose: () => void }) {
         <input className="field-input" placeholder="your nickname" value={nickname} maxLength={24} onChange={(e) => setNickname(e.target.value)} data-testid="room-nickname" />
         <div className="mt-3.5 flex gap-2.5">
           <button className="btn btn-primary" disabled={!name.trim() || !nickname.trim()} data-testid="room-create-go" onClick={create}>
-            🏫 Create room
+            <Icon name="room" size={16} /> Create room
           </button>
           <button className="btn btn-ghost" onClick={onClose}>
             Cancel
@@ -140,7 +145,9 @@ function JoinRoomModal({ onClose }: { onClose: () => void }) {
       <div className="max-h-[85dvh] w-full max-w-[560px] overflow-y-auto rounded-t-[20px] bg-panel p-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
         {!qr && (
           <>
-            <h2 className="m-0 mb-1 text-[17px] font-bold">📷 Join a room</h2>
+            <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold">
+              <Icon name="camera" size={17} /> Join a room
+            </h2>
             <p className="hint mb-3.5">
               Scan the room's invite QR (the host taps “Invite” inside the room) — or pick a saved QR image.
             </p>
@@ -154,7 +161,7 @@ function JoinRoomModal({ onClose }: { onClose: () => void }) {
             <input className="field-input" autoFocus placeholder="your nickname" value={nickname} maxLength={24} onChange={(e) => setNickname(e.target.value)} data-testid="join-nickname" />
             <div className="mt-3.5 flex gap-2.5">
               <button className="btn btn-primary" disabled={!nickname.trim()} data-testid="join-go" onClick={join}>
-                🏫 Join room
+                <Icon name="room" size={16} /> Join room
               </button>
               <button className="btn btn-ghost" onClick={onClose}>
                 Cancel

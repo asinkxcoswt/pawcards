@@ -7,6 +7,7 @@ import type { Provider } from '../lib/types'
 import type { ConfigPayload } from '../lib/qrconfig'
 import ConfirmButton from './ConfirmButton'
 import QrConfigModal from './QrConfigModal'
+import Icon from './Icon'
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const settings = useStore((s) => s.settings)
@@ -103,7 +104,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         <div className="mb-1 flex items-center justify-between">
           <h2 className="m-0 text-[17px] font-bold">Settings</h2>
           <button className="btn btn-ghost -mr-2" data-testid="settings-close" onClick={onClose}>
-            ✕ Close
+            <Icon name="close" size={15} /> Close
           </button>
         </div>
         <p className="hint mb-3.5">
@@ -120,7 +121,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                 setQrMode('show')
               }}
             >
-              ▦ Show settings QR
+              <Icon name="qr" size={16} /> Show settings QR
             </button>
             <button
               className="btn -ml-px rounded-l-none px-2"
@@ -128,7 +129,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               aria-label="Sharing options"
               onClick={() => setQrMenu((v) => !v)}
             >
-              ▾
+              <Icon name="caret" size={16} />
             </button>
             {qrMenu && (
               <>
@@ -136,8 +137,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                 <div className="absolute left-0 top-full z-20 mt-1 w-max rounded-xl border border-line bg-panel p-1 shadow-soft">
                   {(
                     [
-                      ['device', '📲 Share for your device', 'qr-share-device'],
-                      ['friend', '🤝 Share with friend (no Sync ID)', 'qr-share-friend'],
+                      ['device', 'Share for your device', 'qr-share-device'],
+                      ['friend', 'Share with friend (no Sync ID)', 'qr-share-friend'],
                     ] as const
                   ).map(([kind, label, tid]) => (
                     <button
@@ -158,12 +159,33 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             )}
           </div>
           <button className="btn" data-testid="qr-scan" onClick={() => setQrMode('scan')}>
-            📷 Scan settings QR
+            <Icon name="camera" size={16} /> Scan settings QR
           </button>
         </div>
 
         <hr className="my-4.5 border-0 border-t border-line" />
-        <h2 className="m-0 mb-1 text-[17px] font-bold">✨ AI image generation</h2>
+        <h2 className="m-0 mb-1 text-[17px] font-bold">Appearance</h2>
+        <p className="hint mb-3.5">Pick the look that suits you.</p>
+        <div className="flex gap-2.5">
+          {(
+            [
+              ['ink', 'Ink & highlighter'],
+              ['paper', 'Warm paper'],
+            ] as const
+          ).map(([t, label]) => (
+            <button
+              key={t}
+              className={'btn flex-1 justify-center ' + (settings.theme === t ? 'btn-primary' : '')}
+              data-testid={'theme-' + t}
+              onClick={() => saveSettings({ theme: t })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <hr className="my-4.5 border-0 border-t border-line" />
+        <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold"><Icon name="generate" size={17} /> AI image generation</h2>
         <p className="hint mb-3.5">
           Optional. ✨ turns your card's answer text into a front image, which you can then draw on top of.
           <br />
@@ -242,7 +264,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <hr className="my-4.5 border-0 border-t border-line" />
-        <h2 className="m-0 mb-1 text-[17px] font-bold">☁️ Cloud sync</h2>
+        <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold"><Icon name="cloud" size={17} /> Cloud sync</h2>
         <p className="hint mb-3.5">
           Sync decks across your devices through your own Worker (KV storage, free tier). Enter the same Worker URL and Sync ID on every
           device — devices with the same ID share the same cards. <b>The Sync ID is the password to your cards: keep it secret</b>, and note
@@ -275,13 +297,18 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         <div className="flex gap-2.5">
           <ConfirmButton
             className="btn"
-            label="🎲 New ID"
-            armedLabel="❗ Tap again for a new ID"
+            testId="new-sync-id"
+            label={
+              <>
+                <Icon name="dice" size={16} /> New ID
+              </>
+            }
+            armedLabel="Tap again for a new ID"
             toastMsg="A new ID disconnects this device from cards synced under the current ID — your other devices keep syncing without it"
             onConfirm={genSyncId}
           />
           <button className="btn btn-primary" disabled={syncing} onClick={manualSync} data-testid="sync-now">
-            {syncing ? '⏳ Syncing…' : '☁ Sync now'}
+            <Icon name="cloud" size={16} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Syncing…' : 'Sync now'}
           </button>
         </div>
         <p className="hint mt-2" data-testid="sync-status">
@@ -293,7 +320,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         </p>
 
         <hr className="my-4.5 border-0 border-t border-line" />
-        <h2 className="m-0 mb-1 text-[17px] font-bold">🤝 Sharing</h2>
+        <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold"><Icon name="share" size={17} /> Sharing</h2>
         <p className="hint mb-3.5">The name friends see on decks and in rooms you share.</p>
         <div className="mb-3">
           <label className="field-label">Your nickname</label>
@@ -311,16 +338,16 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <hr className="my-4.5 border-0 border-t border-line" />
-        <h2 className="m-0 mb-1 text-[17px] font-bold">💾 Backup</h2>
+        <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold"><Icon name="backup" size={17} /> Backup</h2>
         <p className="hint mb-3.5">
           Everything is stored locally on this device. Use Export regularly to back up, or to move your cards to another device.
         </p>
         <div className="flex gap-2.5">
           <button className="btn btn-primary" onClick={doExport}>
-            ⬇ Export backup
+            <Icon name="export" size={16} /> Export backup
           </button>
           <button className="btn" onClick={() => fileRef.current?.click()}>
-            ⬆ Import
+            <Icon name="upload" size={16} /> Import
           </button>
           <input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={(e) => doImport(e.target)} />
         </div>

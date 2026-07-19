@@ -32,6 +32,17 @@ export default function App() {
     void init()
   }, [init])
 
+  // apply the theme to <html> (and mirror to localStorage so index.html can
+  // set it before first paint — no flash of the default theme)
+  useEffect(() => {
+    document.documentElement.dataset.theme = settings.theme
+    try {
+      localStorage.setItem('paw-theme', settings.theme)
+    } catch {
+      /* private mode — fine */
+    }
+  }, [settings.theme])
+
   // update check: on open and whenever the PWA comes back to the foreground.
   // Only minor/major bumps prompt; patch releases arrive on a natural reload.
   useEffect(() => {

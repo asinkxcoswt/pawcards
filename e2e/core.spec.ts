@@ -5,13 +5,13 @@ test('deck → card → draw → review → Easy retires → shuffle rescue', as
   await resetApp(page)
 
   // deck creation via modal (Enter submits)
-  await page.getByText('＋ New deck').click()
+  await page.getByTestId('new-deck').click()
   await page.getByPlaceholder('Deck name').fill('Biology')
   await page.keyboard.press('Enter')
   await expect(page.getByRole('heading', { name: 'Biology' })).toBeVisible()
 
   // new card opens the editor with the answer box focused
-  await page.getByText('＋ New card').click()
+  await page.getByTestId('new-card').click()
   await expect(page.getByPlaceholder(/key takeaway/)).toBeFocused()
   await page.getByPlaceholder(/key takeaway/).fill('Mitochondria is the powerhouse of the cell')
 

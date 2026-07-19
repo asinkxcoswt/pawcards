@@ -49,7 +49,7 @@ test('share a deck via QR; a friend imports it with the 🤝 tag', async ({ brow
   await wire(A)
   await resetApp(A, { syncUrl: WORKER + '/?key=pw', syncId: 'paw-e2e-share-1' })
   await createDeckAndCard(A, 'Thai Cooking', 'pad krapow needs holy basil')
-  await A.getByText('‹').click() // editor → deck view
+  await A.getByTestId('back').click() // editor → deck view
 
   await A.getByTestId('share-deck').click()
   await A.getByTestId('share-nickname').fill('Khaan')
@@ -83,7 +83,7 @@ test('share a deck via QR; a friend imports it with the 🤝 tag', async ({ brow
   expect(await store<string>(B, 's => s.decks[0].sharedBy')).toBe('Khaan')
   expect(await store<number>(B, 's => s.cards.length')).toBe(1)
   // the home grid shows who shared it
-  await expect(B.getByText('🤝 Khaan')).toBeVisible()
+  await expect(B.getByText('Khaan')).toBeVisible()
 
   // re-import is idempotent and never duplicates
   await B.evaluate((doc) => {
@@ -98,7 +98,7 @@ test('selection mode marks a card private; it is left out of the share', async (
   await wire(A)
   await resetApp(A, { syncUrl: WORKER + '/?key=pw', syncId: 'paw-e2e-share-2', nickname: 'Khaan' })
   await createDeckAndCard(A, 'Notes', 'public fact')
-  await A.getByText('‹').click() // → deck view
+  await A.getByTestId('back').click() // → deck view
   const deckId = await store<string>(A, 's => s.decks[0].id')
   // add a second card that we'll keep private
   await A.evaluate((deckId) => {
