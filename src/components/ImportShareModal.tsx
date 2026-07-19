@@ -84,7 +84,7 @@ export default function ImportShareModal({ onClose }: { onClose: () => void }) {
                   setError('')
                 }}
               >
-                ↻ Rescan
+                <Icon name="refresh" size={16} /> Rescan
               </button>
             </div>
           </>

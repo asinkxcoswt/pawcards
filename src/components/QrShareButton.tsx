@@ -1,6 +1,7 @@
 import type { RefObject } from 'react'
 import { useStore } from '../store'
 import { shareOrDownloadCanvas } from '../lib/qrshare'
+import Icon from './Icon'
 
 /** "Share / Save" button under a QR canvas — native share on mobile, download on desktop. */
 export default function QrShareButton({
@@ -25,7 +26,7 @@ export default function QrShareButton({
         })
       }}
     >
-      ⬆ Share / Save image
+<Icon name="upload" size={16} /> Share / Save image
     </button>
   )
 }

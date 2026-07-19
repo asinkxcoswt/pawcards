@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useQrScan } from '../lib/useQrScan'
+import Icon from './Icon'
 
 /**
  * The app's one QR input UI: live camera preview + "from a photo" picker
@@ -15,7 +16,7 @@ export default function QrScanner({ active, onCode }: { active: boolean; onCode:
       <video ref={videoRef} playsInline muted className="w-full rounded-lg bg-black" data-testid="qr-video" />
       <div className="mt-2.5 flex gap-2.5">
         <button className="btn" data-testid="qr-from-photo" onClick={() => fileRef.current?.click()}>
-          🖼 From a photo
+          <Icon name="photo" size={16} /> From a photo
         </button>
         <input
           ref={fileRef}

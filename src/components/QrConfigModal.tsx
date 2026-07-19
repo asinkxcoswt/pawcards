@@ -122,10 +122,10 @@ export default function QrConfigModal({ mode, variant = 'device', config, onAppl
             </div>
             <div className="flex gap-2.5">
               <button className="btn btn-primary" data-testid="qr-apply" onClick={() => onApply(scanned)}>
-                ✓ Apply settings
+                Apply settings
               </button>
               <button className="btn" onClick={() => setScanned(null)}>
-                ↻ Rescan
+                <Icon name="refresh" size={16} /> Rescan
               </button>
             </div>
           </>
