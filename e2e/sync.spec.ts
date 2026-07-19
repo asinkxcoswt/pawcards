@@ -103,6 +103,17 @@ test('two devices converge: merge, edit-wins, tombstoned delete, grade sync', as
   expect(await store<boolean>(B, "s => s.cards.some(c => c.id === 'c3')")).toBe(true)
   expect(await store<boolean>(B, "s => !s.cards.some(c => c.id === 'c2')")).toBe(true)
   expect(await store<number>(B, "s => s.cards.find(c => c.id === 'c1').srs.reps")).toBe(1)
+
+  // B renames the deck → the rename propagates to A (deck newest-wins)
+  await B.evaluate(() => {
+    const w = (window as any).__store
+    w.getState().renameDeck('deck1', 'Biology 101')
+    return w.getState().syncNow(false)
+  })
+  await expect(B.locator('#toast')).toContainText('Synced')
+  await A.evaluate(() => (window as any).__store.getState().syncNow(false))
+  await expect(A.locator('#toast')).toContainText('Synced')
+  expect(await store<string>(A, "s => s.decks.find(d => d.id === 'deck1').name")).toBe('Biology 101')
 })
 
 test('sync button shows loading state and updates status line', async ({ browser }) => {

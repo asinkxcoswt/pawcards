@@ -14,7 +14,7 @@ const card = (id: string, updated: number, backText = ''): Card => ({
   srs: null,
   polished: {},
 })
-const deck = (id: string): Deck => ({ id, name: id, color: '#000', created: 1 })
+const deck = (id: string, name = id, updated?: number): Deck => ({ id, name, color: '#000', created: 1, updated })
 const empty = { decks: [] as Deck[], cards: [] as Card[], tombstones: {} as Record<string, number> }
 
 describe('mergeRemote', () => {
@@ -36,6 +36,28 @@ describe('mergeRemote', () => {
       { cards: [card('a', 20, 'remote')] },
     )
     expect(remoteNewer.cards[0].backText).toBe('remote')
+  })
+
+  it('newest edit wins per deck too (rename propagates, either direction)', () => {
+    // remote renamed the deck more recently → local adopts the new name
+    const remoteNewer = mergeRemote(
+      { ...empty, decks: [deck('d1', 'Old', 10)] },
+      { decks: [deck('d1', 'Renamed', 20)] },
+    )
+    expect(remoteNewer.decks[0].name).toBe('Renamed')
+
+    // local renamed more recently → local keeps its name
+    const localNewer = mergeRemote(
+      { ...empty, decks: [deck('d1', 'Mine', 20)] },
+      { decks: [deck('d1', 'Stale', 10)] },
+    )
+    expect(localNewer.decks[0].name).toBe('Mine')
+  })
+
+  it('a freshly created remote deck does not overwrite a locally-renamed one', () => {
+    // remote only has created=1 (never renamed); local renamed at 20 → local wins
+    const m = mergeRemote({ ...empty, decks: [deck('d1', 'Mine', 20)] }, { decks: [deck('d1', 'd1')] })
+    expect(m.decks[0].name).toBe('Mine')
   })
 
   it('remote tombstone deletes the local card', () => {

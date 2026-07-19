@@ -4,8 +4,9 @@ import type { Card, Deck, Doc, RoomRef } from './types'
 /**
  * Cloud sync — pull → merge → push against the PawCards Worker's /sync
  * endpoint (Cloudflare KV). Identity is a shared-secret Sync ID; devices
- * with the same ID converge on the same cards. Per-card newest-edit-wins;
- * deletions propagate via tombstones (pruned after 90 days).
+ * with the same ID converge on the same cards. Per-card AND per-deck
+ * newest-`updated`-wins (deck renames/colours too); deletions propagate via
+ * tombstones (pruned after 90 days).
  */
 
 export interface RemoteDoc {
@@ -48,7 +49,9 @@ export function mergeRemote(
 
   for (const rd of remote.decks ?? []) {
     if (tomb[rd.id] > stamp(rd)) continue
-    if (!decks.some((d) => d.id === rd.id)) decks = [...decks, rd]
+    const i = decks.findIndex((d) => d.id === rd.id)
+    if (i < 0) decks = [...decks, rd]
+    else if (stamp(rd) > stamp(decks[i])) decks = decks.map((d, j) => (j === i ? rd : d)) // newest edit wins (rename/color)
   }
   for (const rc of remote.cards ?? []) {
     if (tomb[rc.id] > stamp(rc)) continue
