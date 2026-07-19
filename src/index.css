@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #f6f4ef;
+  --color-panel: #ffffff;
+  --color-ink: #22211f;
+  --color-muted: #8a867d;
+  --color-line: #e6e2d8;
+  --color-accent: #e0663c;
+  --color-accentsoft: #fbe9e1;
+  --color-good: #3f8f5f;
+  --color-hard: #c98a2b;
+  --color-again: #c04b3a;
+  --color-easy: #3d7dbb;
+  --color-edbg: #efece5;
+  --shadow-soft: 0 1px 3px rgba(40, 35, 25, 0.08), 0 8px 24px rgba(40, 35, 25, 0.07);
+  --font-thai: "Sukhumvit Set", "Thonburi", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100dvh;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+@layer components {
+  .btn {
+    @apply bg-panel border border-line rounded-xl px-3.5 py-2 text-sm font-semibold shadow-soft inline-flex items-center gap-1.5 cursor-pointer active:scale-[.97] disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply bg-ink text-white border-ink;
+  }
+  .btn-accent {
+    @apply bg-accent text-white border-accent;
+  }
+  .btn-ghost {
+    @apply shadow-none bg-transparent border-transparent text-muted;
+  }
+  .iconbtn {
+    @apply w-[38px] h-[38px] rounded-[11px] inline-flex items-center justify-center text-[17px] bg-panel border border-line shadow-soft cursor-pointer active:scale-[.97];
+  }
+  .tool {
+    @apply w-9 h-9 rounded-[10px] flex items-center justify-center text-[17px] cursor-pointer;
+  }
+  .tool-on {
+    @apply bg-accentsoft outline-2 outline-accent;
+  }
+  .tool-group {
+    @apply flex items-center gap-1.5 bg-panel border border-line rounded-[13px] px-2 py-1.5 shadow-soft;
+  }
+  .field-label {
+    @apply block text-xs font-bold text-muted mb-1;
+  }
+  .field-input {
+    @apply w-full border border-line rounded-[10px] px-3 py-2.5 text-sm bg-paper text-ink;
+  }
+  .ed-label {
+    @apply text-[11px] font-extrabold tracking-[.08em] text-muted uppercase;
+  }
+  .hint {
+    @apply text-[12.5px] text-muted leading-relaxed;
+  }
+}
+
+@keyframes attnpulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(224, 102, 60, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 12px rgba(224, 102, 60, 0);
+  }
+}
+
+.attn {
+  border-color: var(--color-accent) !important;
+  animation: attnpulse 0.8s ease-out 2;
+}

@@ -1,0 +1,18 @@
+name = "pawcards-polish"
+main = "pawcards-worker.js"
+compatibility_date = "2026-07-01"
+
+[ai]
+binding = "AI"
+
+# --- Cloud sync storage (KV) ---
+# One-time setup:
+#   1. Run:  npx wrangler kv namespace create SYNC
+#   2. Copy the printed id into the block below and remove the leading # marks
+#   3. Deploy again:  npx wrangler deploy
+# (Dashboard route: Storage & Databases → KV → Create namespace,
+#  then Worker → Settings → Bindings → KV namespace, variable name SYNC)
+#
+# [[kv_namespaces]]
+# binding = "SYNC"
+# id = "PASTE_NAMESPACE_ID_HERE"
