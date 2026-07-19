@@ -66,12 +66,30 @@ export interface Settings {
   nickname: string
 }
 
+/**
+ * A workshop room the user created or joined. Lives in the synced doc so
+ * every device of the user can revisit it; the room's live content (shared
+ * decks, members) stays in KV on the room creator's worker (`url`).
+ */
+export interface RoomRef {
+  /** room-xxxx-xxxx — also the KV id of the room doc on `url` */
+  code: string
+  /** room creator's worker sync URL incl ?key= */
+  url: string
+  name: string
+  /** this user's member entry id in the room (stable across rejoins) */
+  memberId: string
+  joinedAt: number
+  updated?: number
+}
+
 export interface Doc {
   version: 1
   decks: Deck[]
   cards: Card[]
   /** id -> deletion timestamp; lets deletes propagate through sync */
   tombstones: Record<string, number>
+  rooms: RoomRef[]
   settings: Settings
 }
 

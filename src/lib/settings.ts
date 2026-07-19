@@ -23,7 +23,7 @@ export function defaultSettings(): Settings {
 }
 
 export function defaultDoc(): Doc {
-  return { version: 1, decks: [], cards: [], tombstones: {}, settings: defaultSettings() }
+  return { version: 1, decks: [], cards: [], tombstones: {}, rooms: [], settings: defaultSettings() }
 }
 
 export function providerDefaults(p: Provider): { model: string; apiUrl: string } {

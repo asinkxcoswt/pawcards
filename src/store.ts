@@ -6,14 +6,15 @@ import { defaultDoc, defaultSettings, migrateSettings } from './lib/settings'
 import { applyGrade, dueCards, isDue, unretire } from './lib/srs'
 import type { ShareDoc } from './lib/share'
 import { mergeRemote, syncConfigured, syncEndpoint } from './lib/sync'
-import type { Card, Deck, Doc, Grade, PolishJob, ReviewSession, Settings } from './lib/types'
+import type { Card, Deck, Doc, Grade, PolishJob, ReviewSession, RoomRef, Settings } from './lib/types'
 
-export type Screen = 'home' | 'deck' | 'editor' | 'review'
+export type Screen = 'home' | 'deck' | 'editor' | 'review' | 'room'
 
 interface UiState {
   screen: Screen
   curDeckId: string | null
   curCardId: string | null
+  curRoomCode: string | null
   session: ReviewSession | null
   polishJobs: PolishJob[]
   toast: { msg: string; at: number } | null
@@ -62,6 +63,11 @@ interface Actions {
   importSharedDeck: (share: ShareDoc) => number
   wipe: () => void
 
+  // rooms (refs in the synced doc; live content is in KV on the room's worker)
+  addRoomRef: (ref: RoomRef) => void
+  openRoom: (code: string) => void
+  leaveRoom: (code: string) => void
+
   // sync
   syncNow: (auto: boolean) => Promise<void>
 }
@@ -82,8 +88,8 @@ function persist(get: () => Store, content = true) {
   if (memoryOnly) return
   clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
-    const { decks, cards, tombstones, settings } = get()
-    void saveDoc({ version: 1, decks, cards, tombstones, settings })
+    const { decks, cards, tombstones, rooms, settings } = get()
+    void saveDoc({ version: 1, decks, cards, tombstones, rooms, settings })
   }, 400)
 }
 
@@ -105,6 +111,7 @@ export const useStore = create<Store>((set, get) => {
     screen: 'home',
     curDeckId: null,
     curCardId: null,
+    curRoomCode: null,
     session: null,
     polishJobs: [],
     toast: null,
@@ -120,6 +127,7 @@ export const useStore = create<Store>((set, get) => {
           decks: doc.decks ?? [],
           cards: doc.cards ?? [],
           tombstones: doc.tombstones ?? {},
+          rooms: doc.rooms ?? [],
           settings: migrateSettings({ ...defaultSettings(), ...doc.settings }, legacy),
         })
       }
@@ -133,6 +141,7 @@ export const useStore = create<Store>((set, get) => {
         dirty:
           s.cards.some((c) => stamp(c) > t) ||
           s.decks.some((d) => stamp(d) > t) ||
+          s.rooms.some((r) => (r.updated ?? r.joinedAt) > t) ||
           Object.values(s.tombstones).some((ts) => ts > t),
       })
       if (memoryOnly) get().showToast('⚠️ Storage unavailable — changes won’t persist. Export often!')
@@ -309,8 +318,8 @@ export const useStore = create<Store>((set, get) => {
       persist(get, false)
     },
     exportJson: () => {
-      const { decks, cards, tombstones, settings } = get()
-      return JSON.stringify({ version: 1, decks, cards, tombstones, settings })
+      const { decks, cards, tombstones, rooms, settings } = get()
+      return JSON.stringify({ version: 1, decks, cards, tombstones, rooms, settings })
     },
     importJson: (json) => {
       const doc = JSON.parse(json) as Doc
@@ -352,7 +361,31 @@ export const useStore = create<Store>((set, get) => {
       return share.cards.length
     },
     wipe: () => {
-      set({ ...defaultDoc(), screen: 'home', curDeckId: null, curCardId: null, session: null })
+      set({ ...defaultDoc(), screen: 'home', curDeckId: null, curCardId: null, curRoomCode: null, session: null })
+      persist(get)
+    },
+
+    /* ---------- rooms ---------- */
+    addRoomRef: (ref) => {
+      set((s) => {
+        const rooms = s.rooms.some((r) => r.code === ref.code)
+          ? s.rooms.map((r) => (r.code === ref.code ? { ...ref, updated: now() } : r))
+          : [...s.rooms, ref]
+        // joining again revokes an old "leave"
+        const tombstones = { ...s.tombstones }
+        delete tombstones[ref.code]
+        return { rooms, tombstones }
+      })
+      persist(get)
+    },
+    openRoom: (code) => set({ curRoomCode: code, screen: 'room' }),
+    leaveRoom: (code) => {
+      set((s) => ({
+        rooms: s.rooms.filter((r) => r.code !== code),
+        tombstones: { ...s.tombstones, [code]: now() },
+        screen: 'home',
+        curRoomCode: null,
+      }))
       persist(get)
     },
 
@@ -368,7 +401,7 @@ export const useStore = create<Store>((set, get) => {
           const remote = await rsp.json()
           if (remote?.doc) {
             const merged = mergeRemote(
-              { decks: get().decks, cards: get().cards, tombstones: get().tombstones },
+              { decks: get().decks, cards: get().cards, tombstones: get().tombstones, rooms: get().rooms },
               remote.doc,
             )
             set(merged)
@@ -377,11 +410,11 @@ export const useStore = create<Store>((set, get) => {
           const e = await rsp.json().catch(() => ({}) as { error?: string })
           throw new Error(e.error ?? 'HTTP ' + rsp.status)
         }
-        const { decks, cards, tombstones } = get()
+        const { decks, cards, tombstones, rooms } = get()
         const put = await fetch(ep, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ doc: { version: 1, decks, cards, tombstones } }),
+          body: JSON.stringify({ doc: { version: 1, decks, cards, tombstones, rooms } }),
         })
         if (!put.ok) {
           const e = await put.json().catch(() => ({}) as { error?: string })

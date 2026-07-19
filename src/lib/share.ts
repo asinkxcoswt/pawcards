@@ -83,6 +83,20 @@ export async function kvPut(syncUrl: string, id: string, doc: unknown): Promise<
   }
 }
 
+/** List KV ids by prefix (worker `?list=` — needs the 2026-07 worker update). */
+export async function kvList(syncUrl: string, prefix: string): Promise<string[]> {
+  const u = new URL(syncUrl)
+  const key = u.searchParams.get('key') ?? ''
+  const rsp = await fetch(u.origin + '/sync?key=' + encodeURIComponent(key) + '&list=' + encodeURIComponent(prefix))
+  if (!rsp.ok) {
+    const e = await rsp.json().catch(() => ({}) as { error?: string })
+    throw new Error(e.error ?? 'HTTP ' + rsp.status)
+  }
+  const body = (await rsp.json()) as { ids?: string[] }
+  if (!Array.isArray(body.ids)) throw new Error("This worker doesn't support rooms yet — update it from the repo")
+  return body.ids
+}
+
 export async function kvGet(syncUrl: string, id: string): Promise<unknown> {
   const rsp = await fetch(syncEndpoint(syncUrl, id))
   if (rsp.status === 404) throw new Error('This share has expired or was never uploaded')

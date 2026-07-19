@@ -15,6 +15,7 @@ export async function resetApp(page: Page, settings: Record<string, unknown> = {
       decks: [],
       cards: [],
       tombstones: {},
+      rooms: [],
       settings: { ...s.settings, ...patch },
       screen: 'home',
       curDeckId: null,

@@ -3,6 +3,7 @@ import { selDueCount, useStore } from '../store'
 import { dueCards } from '../lib/srs'
 import DeckModal from './DeckModal'
 import ImportShareModal from './ImportShareModal'
+import RoomsSection from './RoomsSection'
 import SettingsModal from './SettingsModal'
 
 export default function Home() {
@@ -42,6 +43,8 @@ export default function Home() {
             Review ▸
           </button>
         </div>
+
+        <RoomsSection />
 
         <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
           {decks.length === 0 && (

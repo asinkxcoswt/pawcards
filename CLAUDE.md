@@ -42,6 +42,10 @@ src/
   lib/qrconfig.ts     encode/parse the settings-transfer QR payload (AI + sync config)
   lib/share.ts        deck sharing: deck uploads to KV (share-… id, images incl.),
                       QR carries only the pointer {url, id, name, by, count}
+  lib/room.ts         workshop rooms in KV on the CREATOR's worker: room-… doc,
+                      room-…-member-<id> and room-…-deck-<deckId> found via ?list=
+                      (separate keys so joins/shares never race on one doc; deck
+                      metas point at share-… payloads; re-share replaces by deckId)
   lib/useQrScan.ts    camera + jsQR decode loop hook (used by all scanners)
   components/         Home, DeckView, Editor (drawing engine), Review, SettingsModal,
                       DeckModal, CardThumb, ConfirmButton (tap-again pattern), Toast,
@@ -50,7 +54,9 @@ src/
                       SyncFab (floating "☁ Sync changes" button when dirty),
                       ShareDeckModal (🤝 in DeckView: nickname → upload → QR),
                       ImportShareModal (🤝 on Home: scan → preview → import;
-                      imported decks get deck.sharedBy + 🤝 badge)
+                      imported decks get deck.sharedBy + 🤝 badge),
+                      RoomsSection (Home: room chips + create/join modals),
+                      RoomView (members, shared decks, invite QR, share picker)
 worker/               Cloudflare Worker (generation + translation + sync) — source of
                       truth currently deploys from the littlepawcraft repo, copy kept here
 e2e/  tests/          Playwright specs / bun unit tests
@@ -98,6 +104,11 @@ Friends get their own Cloudflare account + worker URL rather than a shared one.
 - Settings save in real time (no Save button since v3.1); emptied
   apiUrl/model/prompt fields restore their defaults on blur. Settings changes
   don't mark the doc dirty (settings never sync).
+- **Rooms**: `Doc.rooms` (RoomRef: code/url/memberId) DOES sync — per-code
+  newest-wins union in mergeRemote; leaving tombstones the room code. Live room
+  content stays in KV on the room creator's worker and is fetched on open/↻
+  (no polling yet — that's the group-review phase). KV is eventually
+  consistent: same-PoP (in-person) reads land in ~1s, cross-region can lag.
 
 ## Hard-won lessons (do not re-learn these)
 
