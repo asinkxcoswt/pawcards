@@ -1,5 +1,11 @@
 import type { Doc, Provider, Settings } from './types'
 
+/** Sync IDs look like paw-xxxx-xxxx-xxxx; every device starts with its own. */
+export function newSyncId(): string {
+  const chunk = () => Math.random().toString(36).slice(2, 6)
+  return 'paw-' + chunk() + '-' + chunk() + '-' + chunk()
+}
+
 export function defaultSettings(): Settings {
   return {
     provider: 'gemini',
@@ -10,7 +16,7 @@ export function defaultSettings(): Settings {
     prompt:
       'cute flat sticker art, one single centered subject, thick smooth outlines, soft pastel colors, plain white background, minimalist, high quality',
     syncUrl: '',
-    syncId: '',
+    syncId: newSyncId(),
     lastSyncAt: 0,
   }
 }
@@ -51,5 +57,7 @@ export function migrateSettings(s: Settings, legacy: boolean): Settings {
   ) {
     out.prompt = defaultSettings().prompt
   }
+  // devices that predate auto-generated Sync IDs get one prefilled
+  if (!out.syncId) out.syncId = newSyncId()
   return out
 }

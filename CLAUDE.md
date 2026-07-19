@@ -43,7 +43,8 @@ src/
   components/         Home, DeckView, Editor (drawing engine), Review, SettingsModal,
                       DeckModal, CardThumb, ConfirmButton (tap-again pattern), Toast,
                       QrConfigModal (show/scan settings QR; in-app scanner because the
-                      iOS PWA can't be deep-linked from the native camera)
+                      iOS PWA can't be deep-linked from the native camera),
+                      SyncFab (floating "☁ Sync changes" button when dirty)
 worker/               Cloudflare Worker (generation + translation + sync) — source of
                       truth currently deploys from the littlepawcraft repo, copy kept here
 e2e/  tests/          Playwright specs / bun unit tests
@@ -65,8 +66,8 @@ Endpoints (all CORS `*`; `?key=SECRET` gates everything):
   `SYNC`, 24MB guard). Stored value: `{doc, updatedAt}`.
 
 Free-tier notes: Workers AI = 10k neurons/day **per account** (not per worker);
-KV = 1k writes/day (app debounces sync 30s to respect this). Friends get their
-own Cloudflare account + worker URL rather than a shared one.
+KV = 1k writes/day (sync is user-triggered or on open/hide, never on a timer).
+Friends get their own Cloudflare account + worker URL rather than a shared one.
 
 ## Sync design
 
@@ -79,9 +80,15 @@ own Cloudflare account + worker URL rather than a shared one.
 - **Every card mutation must set `updated: now()`** (the `touch` helper in
   store.ts) and **every delete must tombstone** — this discipline is what makes
   sync correct. If you add a mutation, keep it.
-- Auto-sync: on app open, 30s after last change, on visibilitychange→hidden.
-  Manual: Settings → "☁ Sync now" (shows ⏳ loading state — users complained
-  when it silently worked).
+- Sync triggers: on app open, on visibilitychange→hidden, and manually —
+  Settings → "☁ Sync now" (⏳ loading state) or the floating "☁ Sync changes"
+  button (`SyncFab`, home/deck screens only). The 30s-after-edit auto-sync was
+  removed at Khaan's request (v3.1): a `dirty` flag in the store (set by
+  content mutations, cleared on successful push, recomputed from timestamps vs
+  `lastSyncAt` on load) drives the floating button instead.
+- Settings save in real time (no Save button since v3.1); emptied
+  apiUrl/model/prompt fields restore their defaults on blur. Settings changes
+  don't mark the doc dirty (settings never sync).
 
 ## Hard-won lessons (do not re-learn these)
 

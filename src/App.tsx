@@ -5,6 +5,7 @@ import Home from './components/Home'
 import DeckView from './components/DeckView'
 import Editor from './components/Editor'
 import Review from './components/Review'
+import SyncFab from './components/SyncFab'
 import Toast from './components/Toast'
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
       {screen === 'deck' && <DeckView />}
       {screen === 'editor' && <Editor />}
       {screen === 'review' && <Review />}
+      <SyncFab />
       <Toast />
     </div>
   )

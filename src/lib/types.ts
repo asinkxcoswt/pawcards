@@ -43,6 +43,7 @@ export interface Deck {
   name: string
   color: string
   created: number
+  updated?: number
 }
 
 export type Provider = 'local' | 'gemini' | 'openai'

@@ -123,3 +123,40 @@ test('sync button shows loading state and updates status line', async ({ browser
   await expect(page.getByTestId('sync-now')).toContainText('Sync now', { timeout: 5000 })
   await expect(page.getByTestId('sync-status')).toContainText('Last synced')
 })
+
+test('floating sync button: appears on edit, syncs on tap, then disappears', async ({ browser }) => {
+  stored = null
+  const page = await device(browser)
+  // freshly opened, nothing edited → no button
+  await expect(page.getByTestId('sync-fab')).toHaveCount(0)
+
+  await page.getByText('＋ New deck').click()
+  await page.getByPlaceholder('Deck name').fill('Dirty deck')
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('sync-fab')).toBeVisible()
+
+  await page.getByTestId('sync-fab').click()
+  await expect(page.getByTestId('sync-fab')).toHaveCount(0)
+  expect(stored).toContain('Dirty deck')
+})
+
+test('Sync ID is prefilled on first run; New ID needs a confirming second tap', async ({ page }) => {
+  await page.goto('/')
+  await page.waitForFunction('window.__store && window.__store.getState().loaded')
+  await page.locator('.iconbtn', { hasText: '⚙︎' }).click()
+
+  const idInput = page.getByPlaceholder(/tap New ID/)
+  const initial = await idInput.inputValue()
+  expect(initial).toMatch(/^paw-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/)
+
+  // first tap only arms the button — the ID must not change yet
+  await page.getByText('🎲 New ID').click()
+  await expect(page.getByText('Tap again for a new ID')).toBeVisible()
+  expect(await idInput.inputValue()).toBe(initial)
+
+  // second tap generates
+  await page.getByText('Tap again for a new ID').click()
+  const fresh = await idInput.inputValue()
+  expect(fresh).toMatch(/^paw-/)
+  expect(fresh).not.toBe(initial)
+})

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { defaultSettings, migrateSettings } from '../src/lib/settings'
+import { defaultSettings, migrateSettings, newSyncId } from '../src/lib/settings'
 import { describePrompt, instructPrompt } from '../src/lib/prompts'
 
 describe('settings migration', () => {
@@ -39,6 +39,24 @@ describe('settings migration', () => {
 
     const custom = migrateSettings({ ...defaultSettings(), prompt: 'my watercolor style' }, false)
     expect(custom.prompt).toBe('my watercolor style')
+  })
+})
+
+describe('sync id prefill', () => {
+  it('new sync ids match the paw-xxxx-xxxx-xxxx shape', () => {
+    expect(newSyncId()).toMatch(/^paw-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}$/)
+  })
+
+  it('fresh settings come with a Sync ID prefilled', () => {
+    expect(defaultSettings().syncId).toMatch(/^paw-/)
+  })
+
+  it('migration fills an empty Sync ID but never replaces an existing one', () => {
+    const filled = migrateSettings({ ...defaultSettings(), syncId: '' }, false)
+    expect(filled.syncId).toMatch(/^paw-/)
+
+    const kept = migrateSettings({ ...defaultSettings(), syncId: 'paw-mine-mine-mine' }, false)
+    expect(kept.syncId).toBe('paw-mine-mine-mine')
   })
 })
 

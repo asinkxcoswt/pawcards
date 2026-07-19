@@ -18,6 +18,8 @@ interface UiState {
   toast: { msg: string; at: number } | null
   syncing: boolean
   loaded: boolean
+  /** local card/deck edits not yet pushed to the cloud (drives the floating sync button) */
+  dirty: boolean
 }
 
 interface Actions {
@@ -66,14 +68,14 @@ export type Store = Doc & UiState & Actions
 /* ---------- persistence + sync scheduling (module-level side effects) ---------- */
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined
-let syncTimer: ReturnType<typeof setTimeout> | undefined
 
-function persist(get: () => Store) {
-  const s = get()
-  if (syncConfigured(s.settings)) {
-    clearTimeout(syncTimer)
-    syncTimer = setTimeout(() => get().syncNow(true), 30_000) // 30s after last change
-  }
+/**
+ * Debounced IndexedDB write. `content=true` (the default) additionally marks
+ * the doc dirty — i.e. card/deck/tombstone edits that the floating sync button
+ * offers to push. Settings-only changes pass false: settings never sync.
+ */
+function persist(get: () => Store, content = true) {
+  if (content) useStore.setState({ dirty: true })
   if (memoryOnly) return
   clearTimeout(saveTimer)
   saveTimer = setTimeout(() => {
@@ -105,6 +107,7 @@ export const useStore = create<Store>((set, get) => {
     toast: null,
     syncing: false,
     loaded: false,
+    dirty: false,
 
     init: async () => {
       const doc = await loadDoc()
@@ -117,7 +120,18 @@ export const useStore = create<Store>((set, get) => {
           settings: migrateSettings({ ...defaultSettings(), ...doc.settings }, legacy),
         })
       }
-      set({ loaded: true })
+      // edits made before the last successful sync are already in the cloud;
+      // anything newer (or never synced) means there's something to push
+      const s = get()
+      const t = s.settings.lastSyncAt
+      const stamp = (x: { updated?: number; created?: number }) => x.updated ?? x.created ?? 0
+      set({
+        loaded: true,
+        dirty:
+          s.cards.some((c) => stamp(c) > t) ||
+          s.decks.some((d) => stamp(d) > t) ||
+          Object.values(s.tombstones).some((ts) => ts > t),
+      })
       if (memoryOnly) get().showToast('⚠️ Storage unavailable — changes won’t persist. Export often!')
       if (syncConfigured(get().settings)) void get().syncNow(true)
     },
@@ -132,7 +146,7 @@ export const useStore = create<Store>((set, get) => {
       persist(get)
     },
     renameDeck: (id, name) => {
-      set((s) => ({ decks: s.decks.map((d) => (d.id === id ? { ...d, name } : d)) }))
+      set((s) => ({ decks: s.decks.map((d) => (d.id === id ? { ...d, name, updated: now() } : d)) }))
       persist(get)
     },
     deleteDeck: (id) => {
@@ -289,7 +303,7 @@ export const useStore = create<Store>((set, get) => {
     /* ---------- settings / data ---------- */
     saveSettings: (patch) => {
       set((s) => ({ settings: { ...s.settings, ...patch } }))
-      persist(get)
+      persist(get, false)
     },
     exportJson: () => {
       const { decks, cards, tombstones, settings } = get()
@@ -322,7 +336,6 @@ export const useStore = create<Store>((set, get) => {
       const st = get()
       if (!syncConfigured(st.settings) || st.syncing) return
       set({ syncing: true })
-      clearTimeout(syncTimer)
       try {
         const ep = syncEndpoint(st.settings.syncUrl, st.settings.syncId)
         const rsp = await fetch(ep)
@@ -349,8 +362,8 @@ export const useStore = create<Store>((set, get) => {
           const e = await put.json().catch(() => ({}) as { error?: string })
           throw new Error(e.error ?? 'HTTP ' + put.status)
         }
-        set((s) => ({ settings: { ...s.settings, lastSyncAt: now() } }))
-        persist(get)
+        set((s) => ({ dirty: false, settings: { ...s.settings, lastSyncAt: now() } }))
+        persist(get, false)
         if (!auto) get().showToast('☁ Synced')
       } catch (err) {
         if (!auto) get().showToast('Sync failed: ' + (err as Error).message)

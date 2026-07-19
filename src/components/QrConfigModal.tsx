@@ -153,7 +153,7 @@ export default function QrConfigModal({ mode, variant = 'device', config, onAppl
                 <b>Sync server:</b> {host(scanned.syncUrl)}
               </div>
               <div>
-                <b>Sync ID:</b> {scanned.syncId || '—'}
+                <b>Sync ID:</b> {scanned.syncId || 'not included — this device keeps its own'}
               </div>
             </div>
             <div className="flex gap-2.5">

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useStore } from '../store'
 import { APP_VERSION } from '../lib/constants'
-import { defaultSettings, providerDefaults } from '../lib/settings'
+import { defaultSettings, newSyncId, providerDefaults } from '../lib/settings'
 import { syncConfigured } from '../lib/sync'
 import type { Provider } from '../lib/types'
 import type { ConfigPayload } from '../lib/qrconfig'
@@ -28,35 +28,33 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const applyScanned = (cfg: ConfigPayload) => {
-    setProvider(cfg.provider)
-    setApiKey(cfg.apiKey)
-    setApiUrl(cfg.apiUrl)
-    setModel(cfg.model)
-    setPrompt(cfg.prompt)
-    setSyncUrl(cfg.syncUrl)
-    setSyncId(cfg.syncId)
-    saveSettings(cfg)
+    // friend-shared codes carry no Sync ID — keep this device's own
+    const merged = { ...cfg, syncId: cfg.syncId || syncId.trim() || newSyncId() }
+    setProvider(merged.provider)
+    setApiKey(merged.apiKey)
+    setApiUrl(merged.apiUrl)
+    setModel(merged.model)
+    setPrompt(merged.prompt)
+    setSyncUrl(merged.syncUrl)
+    setSyncId(merged.syncId)
+    saveSettings(merged)
     setQrMode(null)
     showToast('Settings applied from QR')
   }
 
+  // every field saves in real time; blur restores defaults for emptied fields
   const changeProvider = (p: Provider) => {
     setProvider(p)
     const d = providerDefaults(p)
     setModel(d.model)
     setApiUrl(d.apiUrl)
+    saveSettings({ provider: p, model: d.model, apiUrl: d.apiUrl })
   }
-
-  const persist = () => {
-    saveSettings({
-      provider,
-      apiKey: apiKey.trim(),
-      apiUrl: apiUrl.trim() || providerDefaults(provider).apiUrl,
-      model: model.trim() || providerDefaults(provider).model,
-      prompt: prompt.trim() || defaultSettings().prompt,
-      syncUrl: syncUrl.trim(),
-      syncId: syncId.trim(),
-    })
+  const restoreIfEmpty = (value: string, fallback: string, setLocal: (v: string) => void, key: 'apiUrl' | 'model' | 'prompt') => {
+    if (!value.trim()) {
+      setLocal(fallback)
+      saveSettings({ [key]: fallback })
+    }
   }
 
   const doExport = () => {
@@ -85,11 +83,12 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
     r.readAsText(f)
   }
   const genSyncId = () => {
-    const chunk = () => Math.random().toString(36).slice(2, 6)
-    setSyncId('paw-' + chunk() + '-' + chunk() + '-' + chunk())
+    const id = newSyncId()
+    setSyncId(id)
+    saveSettings({ syncId: id })
+    showToast('New Sync ID saved — update your other devices')
   }
   const manualSync = () => {
-    persist()
     if (!syncConfigured({ syncUrl: syncUrl.trim(), syncId: syncId.trim() })) {
       showToast('Enter a sync URL and Sync ID first')
       return
@@ -100,98 +99,12 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-[rgba(30,25,18,.4)]" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="max-h-[85dvh] w-full max-w-[560px] overflow-y-auto rounded-t-[20px] bg-panel p-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
-        <h2 className="m-0 mb-1 text-[17px] font-bold">Settings</h2>
-        <p className="hint mb-3.5">
-          Everything is stored locally on this device. Use Export regularly to back up, or to move your cards to another device.
-        </p>
-        <div className="flex gap-2.5">
-          <button className="btn btn-primary" onClick={doExport}>
-            ⬇ Export backup
-          </button>
-          <button className="btn" onClick={() => fileRef.current?.click()}>
-            ⬆ Import
-          </button>
-          <input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={(e) => doImport(e.target)} />
-        </div>
-
-        <hr className="my-4.5 border-0 border-t border-line" />
-        <h2 className="m-0 mb-1 text-[17px] font-bold">✨ AI image generation</h2>
-        <p className="hint mb-3.5">
-          Optional. ✨ turns your card's answer text into a front image, which you can then draw on top of.
-          <br />
-          <br />
-          <b>Self-hosted (recommended, free):</b> point the endpoint at your own image server — a Cloudflare Worker running Workers AI (works
-          from any device, incl. iPhone — free tier), or the Draw Things app on your Mac (API server on, port 7860).
-          <br />
-          <b>Gemini:</b> API key from aistudio.google.com/apikey; image generation needs pay-as-you-go billing.
-          <br />
-          <br />
-          No API at all? Make an image in any app and import it with 📷 as the card background.
-        </p>
-        <div className="mb-3">
-          <label className="field-label">Provider</label>
-          <select className="field-input" value={provider} onChange={(e) => changeProvider(e.target.value as Provider)}>
-            <option value="local">Self-hosted — Draw Things / Cloudflare Worker / A1111</option>
-            <option value="gemini">Google Gemini / Nano Banana</option>
-            <option value="openai">OpenAI-compatible (images edit)</option>
-          </select>
-        </div>
-        {provider !== 'local' && (
-          <div className="mb-3">
-            <label className="field-label">API key</label>
-            <input className="field-input" type="password" placeholder="paste key…" autoComplete="off" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
-          </div>
-        )}
-        {provider !== 'gemini' && (
-          <div className="mb-3">
-            <label className="field-label">Endpoint URL</label>
-            <input className="field-input" value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} />
-          </div>
-        )}
-        {provider !== 'local' && (
-          <div className="mb-3">
-            <label className="field-label">Model</label>
-            <input className="field-input" value={model} onChange={(e) => setModel(e.target.value)} />
-          </div>
-        )}
-        <div className="mb-3">
-          <label className="field-label">Polish style (what finished cards should look like)</label>
-          <textarea className="field-input min-h-16 resize-y" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
-        </div>
-
-        <hr className="my-4.5 border-0 border-t border-line" />
-        <h2 className="m-0 mb-1 text-[17px] font-bold">☁️ Cloud sync</h2>
-        <p className="hint mb-3.5">
-          Sync decks across your devices through your own Worker (KV storage, free tier). Enter the same Worker URL and Sync ID on every
-          device — devices with the same ID share the same cards. <b>The Sync ID is the password to your cards: keep it secret</b>, and note
-          cards are stored unencrypted in your Cloudflare account. Syncs automatically on open and shortly after edits.
-        </p>
-        <div className="mb-3">
-          <label className="field-label">Sync server URL (your Worker, incl. ?key=)</label>
-          <input className="field-input" placeholder="https://…workers.dev/?key=…" value={syncUrl} onChange={(e) => setSyncUrl(e.target.value)} />
-        </div>
-        <div className="mb-3">
-          <label className="field-label">Sync ID (same on all your devices)</label>
-          <input className="field-input" placeholder="tap New ID, or paste from your other device" value={syncId} onChange={(e) => setSyncId(e.target.value)} />
-        </div>
-        <div className="flex gap-2.5">
-          <button className="btn" onClick={genSyncId}>
-            🎲 New ID
-          </button>
-          <button className="btn btn-primary" disabled={syncing} onClick={manualSync} data-testid="sync-now">
-            {syncing ? '⏳ Syncing…' : '☁ Sync now'}
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="m-0 text-[17px] font-bold">Settings</h2>
+          <button className="btn btn-ghost -mr-2" data-testid="settings-close" onClick={onClose}>
+            ✕ Close
           </button>
         </div>
-        <p className="hint mt-2" data-testid="sync-status">
-          {syncing
-            ? 'Syncing with the cloud…'
-            : settings.lastSyncAt
-              ? 'Last synced: ' + new Date(settings.lastSyncAt).toLocaleString()
-              : 'Never synced on this device.'}
-        </p>
-
-        <hr className="my-4.5 border-0 border-t border-line" />
-        <h2 className="m-0 mb-1 text-[17px] font-bold">📱 Move settings to another device</h2>
         <p className="hint mb-3.5">
           Show a QR code with this device's AI + sync configuration, then scan it from PawCards on the other device.
           The code includes your API key and Sync ID — only show it to your own devices.
@@ -248,20 +161,149 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div className="mt-4 flex gap-2.5">
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              persist()
-              onClose()
-              showToast('Settings saved')
+        <hr className="my-4.5 border-0 border-t border-line" />
+        <h2 className="m-0 mb-1 text-[17px] font-bold">✨ AI image generation</h2>
+        <p className="hint mb-3.5">
+          Optional. ✨ turns your card's answer text into a front image, which you can then draw on top of.
+          <br />
+          <br />
+          <b>Self-hosted (recommended, free):</b> point the endpoint at your own image server — a Cloudflare Worker running Workers AI (works
+          from any device, incl. iPhone — free tier), or the Draw Things app on your Mac (API server on, port 7860).
+          <br />
+          <b>Gemini:</b> API key from aistudio.google.com/apikey; image generation needs pay-as-you-go billing.
+          <br />
+          <br />
+          No API at all? Make an image in any app and import it with 📷 as the card background.
+        </p>
+        <div className="mb-3">
+          <label className="field-label">Provider</label>
+          <select className="field-input" value={provider} onChange={(e) => changeProvider(e.target.value as Provider)}>
+            <option value="local">Self-hosted — Draw Things / Cloudflare Worker / A1111</option>
+            <option value="gemini">Google Gemini / Nano Banana</option>
+            <option value="openai">OpenAI-compatible (images edit)</option>
+          </select>
+        </div>
+        {provider !== 'local' && (
+          <div className="mb-3">
+            <label className="field-label">API key</label>
+            <input
+              className="field-input"
+              type="password"
+              placeholder="paste key…"
+              autoComplete="off"
+              value={apiKey}
+              onChange={(e) => {
+                setApiKey(e.target.value)
+                saveSettings({ apiKey: e.target.value.trim() })
+              }}
+            />
+          </div>
+        )}
+        {provider !== 'gemini' && (
+          <div className="mb-3">
+            <label className="field-label">Endpoint URL</label>
+            <input
+              className="field-input"
+              value={apiUrl}
+              onChange={(e) => {
+                setApiUrl(e.target.value)
+                saveSettings({ apiUrl: e.target.value.trim() })
+              }}
+              onBlur={() => restoreIfEmpty(apiUrl, providerDefaults(provider).apiUrl, setApiUrl, 'apiUrl')}
+            />
+          </div>
+        )}
+        {provider !== 'local' && (
+          <div className="mb-3">
+            <label className="field-label">Model</label>
+            <input
+              className="field-input"
+              value={model}
+              onChange={(e) => {
+                setModel(e.target.value)
+                saveSettings({ model: e.target.value.trim() })
+              }}
+              onBlur={() => restoreIfEmpty(model, providerDefaults(provider).model, setModel, 'model')}
+            />
+          </div>
+        )}
+        <div className="mb-3">
+          <label className="field-label">Polish style (what finished cards should look like)</label>
+          <textarea
+            className="field-input min-h-16 resize-y"
+            value={prompt}
+            onChange={(e) => {
+              setPrompt(e.target.value)
+              saveSettings({ prompt: e.target.value.trim() })
             }}
-          >
-            Save
+            onBlur={() => restoreIfEmpty(prompt, defaultSettings().prompt, setPrompt, 'prompt')}
+          />
+        </div>
+
+        <hr className="my-4.5 border-0 border-t border-line" />
+        <h2 className="m-0 mb-1 text-[17px] font-bold">☁️ Cloud sync</h2>
+        <p className="hint mb-3.5">
+          Sync decks across your devices through your own Worker (KV storage, free tier). Enter the same Worker URL and Sync ID on every
+          device — devices with the same ID share the same cards. <b>The Sync ID is the password to your cards: keep it secret</b>, and note
+          cards are stored unencrypted in your Cloudflare account. Syncs automatically on open and shortly after edits.
+        </p>
+        <div className="mb-3">
+          <label className="field-label">Sync server URL (your Worker, incl. ?key=)</label>
+          <input
+            className="field-input"
+            placeholder="https://…workers.dev/?key=…"
+            value={syncUrl}
+            onChange={(e) => {
+              setSyncUrl(e.target.value)
+              saveSettings({ syncUrl: e.target.value.trim() })
+            }}
+          />
+        </div>
+        <div className="mb-3">
+          <label className="field-label">Sync ID (same on all your devices)</label>
+          <input
+            className="field-input"
+            placeholder="tap New ID, or paste from your other device"
+            value={syncId}
+            onChange={(e) => {
+              setSyncId(e.target.value)
+              saveSettings({ syncId: e.target.value.trim() })
+            }}
+          />
+        </div>
+        <div className="flex gap-2.5">
+          <ConfirmButton
+            className="btn"
+            label="🎲 New ID"
+            armedLabel="❗ Tap again for a new ID"
+            toastMsg="A new ID disconnects this device from cards synced under the current ID — your other devices keep syncing without it"
+            onConfirm={genSyncId}
+          />
+          <button className="btn btn-primary" disabled={syncing} onClick={manualSync} data-testid="sync-now">
+            {syncing ? '⏳ Syncing…' : '☁ Sync now'}
           </button>
-          <button className="btn btn-ghost" onClick={onClose}>
-            Close
+        </div>
+        <p className="hint mt-2" data-testid="sync-status">
+          {syncing
+            ? 'Syncing with the cloud…'
+            : settings.lastSyncAt
+              ? 'Last synced: ' + new Date(settings.lastSyncAt).toLocaleString()
+              : 'Never synced on this device.'}
+        </p>
+
+        <hr className="my-4.5 border-0 border-t border-line" />
+        <h2 className="m-0 mb-1 text-[17px] font-bold">💾 Backup</h2>
+        <p className="hint mb-3.5">
+          Everything is stored locally on this device. Use Export regularly to back up, or to move your cards to another device.
+        </p>
+        <div className="flex gap-2.5">
+          <button className="btn btn-primary" onClick={doExport}>
+            ⬇ Export backup
           </button>
+          <button className="btn" onClick={() => fileRef.current?.click()}>
+            ⬆ Import
+          </button>
+          <input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={(e) => doImport(e.target)} />
         </div>
 
         <hr className="my-4.5 border-0 border-t border-line" />
