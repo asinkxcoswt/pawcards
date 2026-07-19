@@ -173,7 +173,11 @@ Friends get their own Cloudflare account + worker URL rather than a shared one.
    cards.
 6. **HTML caching on iOS**: serve index.html with `Cache-Control: no-cache`
    (vercel.json here). Version string in Settings footer exists so devices can
-   be checked (`APP_VERSION` in constants.ts — bump on release).
+   be checked (`APP_VERSION` in constants.ts — bump on release). The build
+   emits `/version.json` (vite plugin); the app checks it on open + on
+   foreground and offers "↻ Update now" (= reload) for MINOR/MAJOR bumps only
+   (`lib/version.ts` policy) — so bump the minor version when devices should
+   be nudged to update, patch when they shouldn't.
 7. **Workers AI docs lie about SDXL**: `stable-diffusion-xl-base-1.0` rejects
    image input (error 3030) despite its documented schema.
 8. **Zustand v5**: selectors must return stable references — no `.filter()` in
