@@ -133,8 +133,19 @@ export default function FrontTextLayer({
           </button>
           <textarea
             ref={taRef}
+            rows={1}
             className="block w-full resize-none overflow-hidden border-0 bg-transparent px-[3.5%] py-[2.5%] outline-none"
-            style={{ color: ft.color, fontSize: fontPx, lineHeight: 1.35, textAlign: ft.align, fontFamily: 'var(--font-thai)' }}
+            style={{
+              color: ft.color,
+              fontSize: fontPx,
+              lineHeight: 1.35,
+              textAlign: ft.align,
+              fontFamily: 'var(--font-thai)',
+              // match FrontCaptionView exactly so the box height never jumps
+              // between editing and viewing (default rows=2 was the culprit)
+              overflowWrap: 'anywhere',
+              wordBreak: 'normal',
+            }}
             placeholder="Caption…"
             value={ft.text}
             data-testid="front-text-input"

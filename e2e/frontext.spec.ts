@@ -27,6 +27,28 @@ test('add a front caption: appears via the Text tool, styles apply, survives to 
   await expect(page.getByTestId('review-card')).toContainText('powerhouse of the cell')
 })
 
+test('caption box keeps the SAME height in edit mode and after Done (no jump)', async ({ page }) => {
+  await resetApp(page)
+  await createDeckAndCard(page, 'X', 'answer')
+  await page.getByTestId('text-tool').click()
+
+  // single line — this is where the old rows=2 default made editing 2 lines tall
+  await page.getByTestId('front-text-input').fill('one line')
+  const editH1 = (await page.getByTestId('front-text-input').boundingBox())!.height
+  await page.getByTestId('front-text-done').click()
+  const viewH1 = (await page.getByTestId('front-text-display').boundingBox())!.height
+  expect(Math.abs(editH1 - viewH1)).toBeLessThanOrEqual(2)
+
+  // multi-line (incl. Thai) — wrapping must match too
+  await page.getByTestId('front-text-display').click()
+  await page.getByTestId('front-text-input').fill('เผชิญหน้ากับความจริง\nand a second, much longer line that wraps')
+  const editH2 = (await page.getByTestId('front-text-input').boundingBox())!.height
+  await page.getByTestId('front-text-done').click()
+  const viewH2 = (await page.getByTestId('front-text-display').boundingBox())!.height
+  expect(Math.abs(editH2 - viewH2)).toBeLessThanOrEqual(2)
+  expect(viewH2).toBeGreaterThan(viewH1) // sanity: it really was multi-line
+})
+
 test('caption can be removed with the delete button', async ({ page }) => {
   await resetApp(page)
   await createDeckAndCard(page, 'X', 'answer')
