@@ -8,6 +8,7 @@ import type { ShareDoc } from '../lib/share'
 import type { Card, Grade, RoomRef } from '../lib/types'
 import ConfirmButton from './ConfirmButton'
 import Icon from './Icon'
+import { FrontCaptionView } from './FrontTextLayer'
 
 interface Props {
   roomRef: RoomRef
@@ -63,7 +64,7 @@ export default function RoomReview({ roomRef, state, review, cache, send, onExit
     const cv = canvasRef.current
     const wrap = cardWrapRef.current
     if (!cv || !wrap || !card) return
-    paintCard(cv, card, side, wrap.clientWidth, { skipBackText: true })
+    paintCard(cv, card, side, wrap.clientWidth, { skipBackText: true, skipFrontText: true })
   }, [card, side])
 
   if (!cur) return null
@@ -131,6 +132,9 @@ export default function RoomReview({ roomRef, state, review, cache, send, onExit
             data-testid="rr-card"
           >
             <canvas ref={canvasRef} className="block aspect-[8/5] w-full bg-white" />
+            {side === 'front' && card?.frontText?.text.trim() && cardWrapRef.current && (
+              <FrontCaptionView ft={card.frontText} cardW={cardWrapRef.current.clientWidth} />
+            )}
             {!card && (
               <div className="absolute inset-0 flex items-center justify-center text-sm text-muted">⏳ fetching card…</div>
             )}

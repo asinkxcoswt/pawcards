@@ -42,6 +42,8 @@ interface Actions {
   setFront: (id: string, strokes: Card['front']) => void
   setBackground: (id: string, dataUrl: string) => void
   clearBackground: (id: string) => void
+  /** set/replace/remove the front caption (undefined removes it) */
+  setFrontText: (id: string, ft: import('./lib/types').FrontText | undefined) => void
   /** flip a card's "keep private / don't share" flag */
   toggleCardPrivate: (id: string) => void
 
@@ -201,6 +203,13 @@ export const useStore = create<Store>((set, get) => {
         const polished = { ...c.polished }
         delete polished.front
         return touch({ ...c, polished })
+      }),
+    setFrontText: (id, ft) =>
+      patchCard(id, (c) => {
+        const next = { ...c }
+        if (ft) next.frontText = ft
+        else delete next.frontText
+        return touch(next)
       }),
     toggleCardPrivate: (id) => patchCard(id, (c) => touch({ ...c, private: !c.private })),
 

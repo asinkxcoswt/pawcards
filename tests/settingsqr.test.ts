@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { settingsQrSvg, stackConfigPayload } from '../worker/settings-qr'
 import { parseConfig } from '../src/lib/qrconfig'
+import { defaultSettings } from '../src/lib/settings'
 
 describe('deploy-script settings QR', () => {
   const endpoint = 'https://paw-test.khaan.workers.dev/?key=abc123'
@@ -12,7 +13,7 @@ describe('deploy-script settings QR', () => {
     expect(cfg.syncUrl).toBe(endpoint)
     expect(cfg.apiKey).toBe('')
     expect(cfg.syncId).toBe('') // scanning devices keep their own Sync ID
-    expect(cfg.prompt).toContain('cute flat sticker art')
+    expect(cfg.prompt).toBe(defaultSettings().prompt)
   })
 
   test('svg card embeds the QR and the human-readable environment info', async () => {

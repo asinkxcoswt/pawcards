@@ -35,7 +35,7 @@ describe('settings migration', () => {
       },
       false,
     )
-    expect(old.prompt).toStartWith('cute flat sticker art')
+    expect(old.prompt).toBe(defaultSettings().prompt)
 
     const custom = migrateSettings({ ...defaultSettings(), prompt: 'my watercolor style' }, false)
     expect(custom.prompt).toBe('my watercolor style')

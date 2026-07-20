@@ -6,6 +6,7 @@ import { drawBg, frontToBlob, renderStrokes } from '../lib/canvas'
 import type { Stroke } from '../lib/types'
 import ConfirmButton from './ConfirmButton'
 import Icon from './Icon'
+import FrontTextLayer, { defaultFrontText } from './FrontTextLayer'
 
 type ToolType = 'pen' | 'hl' | 'eraser'
 
@@ -16,10 +17,12 @@ export default function Editor() {
   const cardId = useStore((s) => s.curCardId)!
   const card = useStore((s) => s.cards.find((c) => c.id === cardId))
   const polishing = useStore((s) => s.polishJobs.some((j) => j.cardId === cardId))
-  const { closeEditor, deleteCard, setBackText, setFront, setBackground, clearBackground, requestPolish, showToast } =
+  const { closeEditor, deleteCard, setBackText, setFront, setBackground, clearBackground, requestPolish, setFrontText, showToast } =
     useStore.getState()
 
   const [tool, setTool] = useState<ToolType>('pen')
+  const [textSel, setTextSel] = useState(false)
+  const [cardW, setCardW] = useState(0)
   const [penColor, setPenColor] = useState(PEN_COLORS[0])
   const [hlColor, setHlColor] = useState(HL_COLORS[0])
   const [sizeIdx, setSizeIdx] = useState(1)
@@ -76,6 +79,7 @@ export default function Editor() {
     if (groupRef.current) groupRef.current.style.width = w + 'px'
     cardEl.style.width = w + 'px'
     cardEl.style.height = h + 'px'
+    setCardW(w)
     const dpr = window.devicePixelRatio || 1
     cv.width = Math.round(w * dpr)
     cv.height = Math.round(h * dpr)
@@ -348,7 +352,10 @@ export default function Editor() {
             <canvas
               ref={canvasRef}
               className="block h-full w-full touch-none"
-              onPointerDown={onPointerDown}
+              onPointerDown={(e) => {
+                if (textSel) setTextSel(false)
+                onPointerDown(e)
+              }}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerCancel={() => {
@@ -361,6 +368,17 @@ export default function Editor() {
               <div className="absolute left-2.5 top-2.5 z-[5] flex items-center gap-1.5 rounded-full bg-[rgba(25,25,25,.8)] px-3 py-1.5 text-xs font-semibold text-white">
                 <Icon name="generate" size={13} /> creating…
               </div>
+            )}
+            {card.frontText && (
+              <FrontTextLayer
+                cardId={cardId}
+                ft={card.frontText}
+                cardW={cardW}
+                cardElRef={cardElRef}
+                selected={textSel}
+                onSelect={() => setTextSel(true)}
+                onDone={() => setTextSel(false)}
+              />
             )}
             {card.polished.front && (
               <ConfirmButton
@@ -397,6 +415,17 @@ export default function Editor() {
               <Icon name={icon} />
             </button>
           ))}
+          <button
+            className={'tool ' + (textSel ? 'tool-on' : '')}
+            title="Add a caption"
+            data-testid="text-tool"
+            onClick={() => {
+              if (!card.frontText) setFrontText(cardId, defaultFrontText())
+              setTextSel(true)
+            }}
+          >
+            <Icon name="text" />
+          </button>
         </div>
         <div className="tool-group">
           {colors.map((c) => (

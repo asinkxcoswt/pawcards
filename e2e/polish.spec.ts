@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { createDeckAndCard, drawLine, resetApp, store } from './helpers'
+import { defaultSettings } from '../src/lib/settings'
 
 const WORKER = 'https://pawpolish.test.workers.dev'
 
@@ -40,7 +41,8 @@ test('✨ generates from the answer; ink survives on top; ✕ image clears bg on
   await expect(page.locator('#toast')).toContainText('Image ready', { timeout: 5000 })
   const prompt = lastPolishBody.prompt ?? ''
   expect(prompt.startsWith('osmosis moves water')).toBe(true)
-  expect(prompt).toContain('sticker art')
+  // the configured style is appended after the subject
+  expect(prompt).toContain(defaultSettings().prompt)
 
   // background visible under ink in the editor canvas
   await page.waitForTimeout(300)

@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { fmtIv, previewIntervals } from '../lib/srs'
 import { fontSizeTier, paintCard } from '../lib/canvas'
 import { CARD_W } from '../lib/constants'
 import Icon from './Icon'
+import { FrontCaptionView } from './FrontTextLayer'
 
 export default function Review() {
   const session = useStore((s) => s.session)
@@ -12,6 +13,17 @@ export default function Review() {
   const { flip, grade, endReview } = useStore.getState()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const cardWrapRef = useRef<HTMLDivElement>(null)
+  const [wrapW, setWrapW] = useState(0)
+
+  useEffect(() => {
+    const el = cardWrapRef.current
+    if (!el) return
+    const set = () => setWrapW(el.clientWidth)
+    set()
+    const ro = new ResizeObserver(set)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   const card = session ? cards.find((c) => c.id === session.queue[session.i]) : undefined
   const side: 'front' | 'back' = session?.flipped ? 'back' : 'front'
@@ -23,7 +35,7 @@ export default function Review() {
     if (!cv || !wrap || !card) return
     // review back: canvas paints legacy ink only — the answer text is real DOM
     // so Thai (and every other script) wraps with the browser's native engine
-    paintCard(cv, card, side, wrap.clientWidth, { skipBackText: true })
+    paintCard(cv, card, side, wrap.clientWidth, { skipBackText: true, skipFrontText: true })
   }, [card, side])
 
   if (!session || !card) return null
@@ -56,6 +68,9 @@ export default function Review() {
           data-testid="review-card"
         >
           <canvas ref={canvasRef} className="block aspect-[8/5] w-full bg-white" />
+          {side === 'front' && card.frontText?.text.trim() && wrapW > 0 && (
+            <FrontCaptionView ft={card.frontText} cardW={wrapW} />
+          )}
           {showDomText && (
             <div
               data-testid="review-answer"

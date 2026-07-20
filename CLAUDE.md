@@ -48,7 +48,12 @@ src/
   lib/sync.ts         mergeRemote (newest-edit-wins per card + tombstones)
   lib/prompts.ts      describePrompt (SD/Flux) vs instructPrompt (Gemini/OpenAI)
   lib/polish.ts       three providers, txt2img ONLY (img2img was removed — see History)
-  lib/canvas.ts       stroke render, bg-image cover draw, Thai-aware canvas text (thumbs only)
+  lib/canvas.ts       stroke render, bg-image cover draw, Thai-aware canvas text
+                      (thumbs/export only), drawFrontText (front caption on canvas)
+  components/FrontTextLayer.tsx  the optional front caption: editor overlay
+                      (movable full-width box, format popover) + FrontCaptionView
+                      (read-only, reused by Review/RoomReview as a DOM overlay so
+                      Thai wraps natively; canvas draw only for thumbnails/export)
   lib/qrconfig.ts     encode/parse the settings-transfer QR payload (AI + sync config)
   lib/share.ts        deck sharing: deck uploads to KV (share-… id, images incl.),
                       QR carries only the pointer {url, id, name, by, count};

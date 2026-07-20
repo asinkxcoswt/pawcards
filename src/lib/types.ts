@@ -20,6 +20,21 @@ export interface Srs {
   retired?: boolean
 }
 
+/** a single optional caption on the card Front (full width, movable vertically) */
+export interface FrontText {
+  text: string
+  /** box top as a fraction of card height (0..1); box is full width */
+  y: number
+  /** font size in logical CARD_W(800) space px */
+  size: number
+  color: string
+  align: 'left' | 'center' | 'right'
+  /** background colour, or 'none' for transparent */
+  bg: string
+  /** background opacity 0..1 (ignored when bg === 'none') */
+  bgAlpha: number
+}
+
 export interface Card {
   id: string
   deckId: string
@@ -27,6 +42,8 @@ export interface Card {
   updated?: number
   /** freehand ink on the front (drawn OVER the generated background) */
   front: Stroke[]
+  /** optional caption on the front (drawn OVER ink) */
+  frontText?: FrontText
   /** legacy: pre-v1.7 cards could have ink on the back; editor no longer edits it */
   back: Stroke[]
   /** the answer / key takeaway; rendered as DOM text in review */

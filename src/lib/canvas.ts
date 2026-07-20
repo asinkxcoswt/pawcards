@@ -1,5 +1,5 @@
 import { CARD_H, CARD_W } from './constants'
-import type { Card, Stroke } from './types'
+import type { Card, FrontText, Stroke } from './types'
 
 /** Stroke rendering + card painting. Strokes live in logical 800×500 space. */
 
@@ -67,6 +67,8 @@ export interface PaintOpts {
   thumb?: boolean
   /** review paints back-side ink only — the answer text is a DOM overlay */
   skipBackText?: boolean
+  /** review/editor render the front caption as a DOM overlay instead */
+  skipFrontText?: boolean
 }
 
 export function paintCard(
@@ -93,9 +95,10 @@ export function paintCard(
   if (side === 'back' && !opts.skipBackText && c.backText.trim()) {
     drawCardText(ctx, c.backText, w, h, (c.back ?? []).length > 0)
   }
-  if (opts.thumb && side === 'front' && !bg && !(c.front ?? []).length && c.backText.trim()) {
+  if (opts.thumb && side === 'front' && !bg && !(c.front ?? []).length && !c.frontText?.text.trim() && c.backText.trim()) {
     drawCardText(ctx, c.backText, w, h, false, 'rgba(34,33,31,.4)')
   }
+  if (side === 'front' && !opts.skipFrontText && c.frontText?.text.trim()) drawFrontText(ctx, c.frontText, w, h)
 }
 
 /* ---------- Thai-aware canvas text (used for thumbnails only; review uses DOM) ---------- */
@@ -123,6 +126,88 @@ export function fontSizeTier(text: string): number {
   return len <= 40 ? 56 : len <= 90 ? 46 : len <= 180 ? 38 : 30
 }
 
+/** wrap `clean` to fit `maxW` at the ctx's current font (Thai-segment aware) */
+export function wrapLines(ctx: CanvasRenderingContext2D, clean: string, maxW: number): string[] {
+  const measure = (t: string) => ctx.measureText(t).width
+  const tokens = (para: string): string[] => {
+    const out: string[] = []
+    for (const part of para.split(/(\s+)/)) {
+      if (!part) continue
+      if (/^\s+$/.test(part)) {
+        out.push(' ')
+        continue
+      }
+      const seg = THAI_RE.test(part) ? thaiSegments(part) : null
+      if (seg) out.push(...seg)
+      else out.push(part)
+    }
+    return out
+  }
+  const lines: string[] = []
+  for (const para of clean.split('\n')) {
+    let line = ''
+    for (const tok of tokens(para)) {
+      if (tok === ' ') {
+        if (line) line += ' '
+        continue
+      }
+      if (measure(tok) > maxW) {
+        if (line.trim()) lines.push(line.trimEnd())
+        let rest = tok
+        while (measure(rest) > maxW && rest.length > 1) {
+          let cut = Math.max(1, Math.floor((rest.length * maxW) / measure(rest)))
+          while (cut > 1 && measure(rest.slice(0, cut)) > maxW) cut--
+          while (cut < rest.length && TH_MARK.test(rest[cut])) cut++
+          lines.push(rest.slice(0, cut))
+          rest = rest.slice(cut)
+        }
+        line = rest
+        continue
+      }
+      const test = line + tok
+      if (measure(test) > maxW && line.trim()) {
+        lines.push(line.trimEnd())
+        line = tok
+      } else line = test
+    }
+    lines.push(line.trimEnd())
+  }
+  return lines
+}
+
+/** draw the front caption (bg box + text) onto a canvas — thumbnails & export */
+export function drawFrontText(ctx: CanvasRenderingContext2D, ft: FrontText, w: number, h: number): void {
+  const clean = ft.text.replace(/\s+$/, '')
+  if (!clean) return
+  const scale = w / CARD_W
+  const size = ft.size * scale
+  const isThai = THAI_RE.test(clean)
+  const lh = size * (isThai ? 1.5 : 1.28)
+  ctx.save()
+  ctx.font = '600 ' + size + 'px "Sukhumvit Set", Thonburi, system-ui, "Segoe UI", Roboto, sans-serif'
+  ctx.textBaseline = 'top'
+  const padX = 14 * scale
+  const padY = 10 * scale
+  const lines = wrapLines(ctx, clean, w - padX * 2)
+  const boxTop = Math.max(0, Math.min(h, ft.y * h))
+  const boxH = lines.length * lh + padY * 2
+  if (ft.bg !== 'none' && ft.bgAlpha > 0) {
+    ctx.globalAlpha = ft.bgAlpha
+    ctx.fillStyle = ft.bg
+    ctx.fillRect(0, boxTop, w, boxH)
+    ctx.globalAlpha = 1
+  }
+  ctx.fillStyle = ft.color
+  ctx.textAlign = ft.align
+  const tx = ft.align === 'left' ? padX : ft.align === 'right' ? w - padX : w / 2
+  let y = boxTop + padY
+  for (const l of lines) {
+    ctx.fillText(l, tx, y)
+    y += lh
+  }
+  ctx.restore()
+}
+
 export function drawCardText(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -144,53 +229,7 @@ export function drawCardText(
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
   const maxW = w * 0.86
-  const measure = (t: string) => ctx.measureText(t).width
-
-  const tokens = (para: string): string[] => {
-    const out: string[] = []
-    for (const part of para.split(/(\s+)/)) {
-      if (!part) continue
-      if (/^\s+$/.test(part)) {
-        out.push(' ')
-        continue
-      }
-      const seg = THAI_RE.test(part) ? thaiSegments(part) : null
-      if (seg) out.push(...seg)
-      else out.push(part)
-    }
-    return out
-  }
-
-  const lines: string[] = []
-  for (const para of clean.split('\n')) {
-    let line = ''
-    for (const tok of tokens(para)) {
-      if (tok === ' ') {
-        if (line) line += ' '
-        continue
-      }
-      if (measure(tok) > maxW) {
-        // forced break: split by characters, keeping combining marks attached
-        if (line.trim()) lines.push(line.trimEnd())
-        let rest = tok
-        while (measure(rest) > maxW && rest.length > 1) {
-          let cut = Math.max(1, Math.floor((rest.length * maxW) / measure(rest)))
-          while (cut > 1 && measure(rest.slice(0, cut)) > maxW) cut--
-          while (cut < rest.length && TH_MARK.test(rest[cut])) cut++
-          lines.push(rest.slice(0, cut))
-          rest = rest.slice(cut)
-        }
-        line = rest
-        continue
-      }
-      const test = line + tok
-      if (measure(test) > maxW && line.trim()) {
-        lines.push(line.trimEnd())
-        line = tok
-      } else line = test
-    }
-    lines.push(line.trimEnd())
-  }
+  const lines = wrapLines(ctx, clean, maxW)
 
   const maxLines = Math.max(1, Math.floor((h - 30 * scale) / lh))
   if (lines.length > maxLines) {
@@ -237,5 +276,6 @@ export async function frontToBlob(c: Card): Promise<Blob> {
     }
   }
   renderStrokes(ctx, c.front, 1024 / CARD_W)
+  if (c.frontText?.text.trim()) drawFrontText(ctx, c.frontText, 1024, 640)
   return new Promise((res) => cv.toBlob((b) => res(b!), 'image/png'))
 }
