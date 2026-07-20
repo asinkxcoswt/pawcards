@@ -69,16 +69,18 @@ src/
                       data URLs — recipients/other workers can't resolve them
   lib/polish.ts       three providers, txt2img ONLY (img2img was removed — see History)
   lib/canvas.ts       stroke render, bg-image cover draw (drawBg resolves img:
-                      refs), paw placeholder for visually-empty thumbs. Since
-                      v3.11 text is DOM-ONLY (Khaan's call): thumbnails and ⤓
-                      export draw NO caption/answer text — the Thai-aware canvas
-                      text helpers (drawCardText/drawFrontText) remain only for
-                      the back side of paintCard, which nothing currently paints
-                      with text visible
+                      refs), paw placeholder for visually-empty thumbs (skipped
+                      when a caption is present). Canvas text stays DOM-ONLY: the
+                      front caption is NEVER drawn on canvas (thumbnails overlay
+                      FrontCaptionView as DOM — v3.14; ⤓ export stays caption-free
+                      since a PNG can't carry a DOM overlay). Thai-aware canvas
+                      helpers (drawCardText/drawFrontText) remain only for the back
+                      side of paintCard, which nothing currently paints with text
   components/FrontTextLayer.tsx  the optional front caption: editor overlay
                       (movable full-width box, format popover) + FrontCaptionView
-                      (read-only, reused by Review/RoomReview as a DOM overlay so
-                      Thai wraps natively; NOT drawn on thumbs/export since v3.11)
+                      (read-only DOM overlay, reused by Review/RoomReview AND card
+                      thumbnails (v3.14, interactive={false}) so Thai wraps
+                      natively and positions correctly; NOT on ⤓ export)
   lib/qrconfig.ts     encode/parse the settings-transfer QR payload (AI + sync config)
   lib/invite.ts       generalized room QR v2 = onboarding invite (v3.12): payload
                       {url incl ?key, code?, name?, by?, exp?} — `url` IS the
@@ -281,9 +283,11 @@ Friends get their own Cloudflare account + worker URL rather than a shared one.
 3. **iOS canvas `measureText` lies about Thai** — centered canvas text renders
    shifted/overflowing on iPhone only. Review answers are therefore **real DOM
    text** (`Review.tsx` overlay), which uses the browser's native Thai
-   word-breaking. v3.11 finished the job (Khaan's call): thumbnails and ⤓
-   export draw NO text at all — text-only thumbs show a faint paw placeholder.
-   Don't reintroduce canvas-drawn Thai anywhere user-visible.
+   word-breaking. The front caption is likewise DOM: thumbnails overlay
+   FrontCaptionView (v3.14 — brought captions back, correctly positioned);
+   ⤓ export (a flat PNG) stays caption-free; a caption-less, image-less thumb
+   shows the paw placeholder. Don't reintroduce canvas-drawn Thai anywhere
+   user-visible — always reach for the DOM overlay.
 4. **Thai font on iOS**: the system font cascade swallows later families —
    `"Sukhumvit Set"` must be FIRST in the font stack (`--font-thai` token).
 5. **iOS PWA storage isolation**: Safari and the home-screen app have separate

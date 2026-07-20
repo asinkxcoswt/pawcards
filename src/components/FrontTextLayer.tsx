@@ -41,17 +41,20 @@ export function FrontCaptionView({
   cardW,
   onClick,
   testId,
+  interactive = true,
 }: {
   ft: FrontText
   cardW: number
   onClick?: () => void
   testId?: string
+  /** thumbnails render it purely visual (click-through to the card) */
+  interactive?: boolean
 }) {
   const fontPx = (ft.size * cardW) / CARD_W
   return (
     <CaptionSlot y={ft.y}>
       <div
-        className="pointer-events-auto w-full whitespace-pre-wrap px-[3.5%] py-[2.5%]"
+        className={(interactive ? 'pointer-events-auto' : 'pointer-events-none') + ' w-full whitespace-pre-wrap px-[3.5%] py-[2.5%]'}
         style={{
           background: ft.bg === 'none' ? 'transparent' : rgba(ft.bg, ft.bgAlpha),
           color: ft.color,

@@ -110,9 +110,10 @@ export function paintCard(
   if (side === 'back' && !opts.skipBackText && c.backText.trim()) {
     drawCardText(ctx, c.backText, w, h, (c.back ?? []).length > 0)
   }
-  // thumbnails never draw text (canvas Thai misrenders on iOS); a card with
-  // nothing visual on the front gets the paw placeholder instead
-  if (opts.thumb && side === 'front' && !bg && !(c.front ?? []).length) {
+  // thumbnails draw no text on canvas (Thai misrenders on iOS — the caption
+  // rides as a DOM overlay in CardThumb); a front with nothing visual and no
+  // caption gets the paw placeholder instead
+  if (opts.thumb && side === 'front' && !bg && !(c.front ?? []).length && !c.frontText?.text.trim()) {
     drawPawPlaceholder(ctx, w, h)
   }
   if (side === 'front' && !opts.skipFrontText && !opts.thumb && c.frontText?.text.trim()) {

@@ -26,8 +26,6 @@ export default function App() {
   const loaded = useStore((s) => s.loaded)
   const init = useStore((s) => s.init)
   const settings = useStore((s) => s.settings)
-  const cards = useStore((s) => s.cards)
-  const decks = useStore((s) => s.decks)
   // offer "add to home screen" in a mobile browser tab (once, until dismissed/installed)
   const installPlatform = detectPlatform()
   const [installOffered, setInstallOffered] = useState(
@@ -91,14 +89,14 @@ export default function App() {
 
   // install invite comes first; onboarding waits until it's answered
   const showInstall = !installOffered
-  // only on a genuinely fresh install: nothing created, nothing configured,
-  // not skipped — and no invite link (InviteGate does the onboarding then)
+  // first-run setup prompt: keyed on the `onboarded` flag + no backend, NOT on
+  // an empty library — every new user is now seeded the example deck, so the
+  // library is never empty (the flag is the real "hasn't set up yet" signal).
+  // Suppressed while an invite link is applying (InviteGate onboards instead).
   const showOnboarding =
     !showInstall &&
     !bootInvite &&
     !settings.onboarded &&
-    decks.length === 0 &&
-    cards.length === 0 &&
     !settings.syncUrl.trim() &&
     !settings.apiKey.trim()
 
