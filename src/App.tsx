@@ -15,9 +15,10 @@ import { parseInviteFragment } from './lib/invite'
 import { detectPlatform, installDismissed, isStandalone } from './lib/pwa'
 import Toast from './components/Toast'
 
-// parsed once at module load; the fragment stays in the URL on purpose — iOS
-// Add-to-Home-Screen keeps the current URL, so the installed PWA relaunches
-// with the invite and re-applies it into its own storage (see InviteGate)
+// parsed once at module load. Applies in the browser tab it's opened in (and,
+// on Android, in the installed PWA — shared storage). NOT on iOS installs: iOS
+// drops the #fragment on Add-to-Home-Screen (launches from manifest start_url),
+// so an iOS install starts empty. See InviteGate.
 const bootInvite = typeof location !== 'undefined' ? parseInviteFragment(location.hash) : null
 
 export default function App() {

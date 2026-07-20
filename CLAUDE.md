@@ -81,13 +81,16 @@ src/
                       (no syncUrl/apiKey) adopts settings + mints its own syncId
                       + room pill + "X invites you" Join/Skip popup; configured
                       apps only gain the RoomRef (bridge — own url/key per room).
-                      The #ws= fragment STAYS in the URL: iOS A2HS keeps the
-                      current URL, so the installed PWA relaunches with the
-                      invite and re-applies it into its separate storage
-                      (idempotent: already-joined → quiet). Settings-page
-                      scanner also accepts invite QRs but IGNORES the room
-                      (deliberate settings replace); Rooms→Join on a fresh app
-                      adopts settings too (QR flavour of the link).
+                      The invite applies in the BROWSER TAB it's opened in. iOS
+                      A2HS does NOT carry the #fragment into an installed PWA
+                      (iOS launches from manifest start_url — verified on device),
+                      so an iOS install starts empty and the link must be opened
+                      in Safari; Android installs share browser storage so it's
+                      fine. (A clipboard paste-setup bridge was discussed, not
+                      built; long-term plan is native — see session notes.)
+                      Settings-page scanner also accepts invite QRs but IGNORES
+                      the room (deliberate settings replace); Rooms→Join on a
+                      fresh app adopts settings too (QR flavour of the link).
   lib/share.ts        deck sharing: deck uploads to KV (share-… id, images incl.),
                       QR carries only the pointer {url, id, name, by, count};
                       shareableCards() drops card.private (🔒) from every share

@@ -17,10 +17,14 @@ import Logo from './Logo'
  * - configured apps keep their main settings — the room joins as a bridge
  *   with its own url/key (RoomRef), nothing else changes
  *
- * The fragment is deliberately KEPT in the address bar: on iOS,
- * Add-to-Home-Screen uses the current URL, so the installed PWA relaunches
- * with the invite and this same code re-applies it into the PWA's own
- * (separate) storage. Everything here is idempotent, so relaunches are safe.
+ * The invite is applied in the BROWSER TAB where the link is opened. On
+ * Android that's enough — the installed PWA shares the browser's storage.
+ * On iOS it does NOT carry into an installed PWA: iOS launches the home-screen
+ * app from the manifest start_url, dropping the #fragment (verified on device),
+ * so an iOS user who installs lands in an empty app and must re-open the link
+ * in Safari. (A clipboard "paste setup" bridge was discussed but not built —
+ * see session notes; long-term plan is a native app.) The re-application logic
+ * is idempotent, which still helps same-tab revisits and Android relaunches.
  */
 export default function InviteGate({ invite }: { invite: InvitePayload }) {
   const settings = useStore((s) => s.settings)
