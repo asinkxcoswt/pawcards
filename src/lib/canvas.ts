@@ -77,7 +77,8 @@ export function drawBg(
 }
 
 export interface PaintOpts {
-  /** thumbnails preview the answer text faintly on text-only cards */
+  /** thumbnails: no caption/text (canvas Thai is unreliable on iOS — text is
+   *  DOM-only since v3.11); cards with nothing visual get a paw placeholder */
   thumb?: boolean
   /** review paints back-side ink only — the answer text is a DOM overlay */
   skipBackText?: boolean
@@ -109,13 +110,37 @@ export function paintCard(
   if (side === 'back' && !opts.skipBackText && c.backText.trim()) {
     drawCardText(ctx, c.backText, w, h, (c.back ?? []).length > 0)
   }
-  if (opts.thumb && side === 'front' && !bg && !(c.front ?? []).length && !c.frontText?.text.trim() && c.backText.trim()) {
-    drawCardText(ctx, c.backText, w, h, false, 'rgba(34,33,31,.4)')
+  // thumbnails never draw text (canvas Thai misrenders on iOS); a card with
+  // nothing visual on the front gets the paw placeholder instead
+  if (opts.thumb && side === 'front' && !bg && !(c.front ?? []).length) {
+    drawPawPlaceholder(ctx, w, h)
   }
-  if (side === 'front' && !opts.skipFrontText && c.frontText?.text.trim()) drawFrontText(ctx, c.frontText, w, h)
+  if (side === 'front' && !opts.skipFrontText && !opts.thumb && c.frontText?.text.trim()) {
+    drawFrontText(ctx, c.frontText, w, h)
+  }
 }
 
-/* ---------- Thai-aware canvas text (used for thumbnails only; review uses DOM) ---------- */
+/** faint paw (same geometry as Logo.tsx, 32-unit space) for thumbs with no visual front */
+function drawPawPlaceholder(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+  const s = (h * 0.42) / 32 // paw height ≈ 42% of the card
+  const ox = w / 2 - 16 * s
+  const oy = h / 2 - 16 * s
+  ctx.save()
+  ctx.fillStyle = 'rgba(34,33,31,.12)'
+  const dot = (cx: number, cy: number, rx: number, ry: number) => {
+    ctx.beginPath()
+    ctx.ellipse(ox + cx * s, oy + cy * s, rx * s, ry * s, 0, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  dot(16, 21.5, 7.5, 6)
+  dot(8.5, 15, 2.7, 2.7)
+  dot(13.5, 10.5, 2.9, 2.9)
+  dot(18.5, 10.5, 2.9, 2.9)
+  dot(23.5, 15, 2.7, 2.7)
+  ctx.restore()
+}
+
+/* ---------- Thai-aware canvas text (kept for the back side of exports; review uses DOM) ---------- */
 
 export const THAI_RE = /[฀-๿]/
 const TH_MARK = /[ัิ-ฺ็-๎]/ // combining marks — never start a line
@@ -292,6 +317,7 @@ export async function frontToBlob(c: Card): Promise<Blob> {
     }
   }
   renderStrokes(ctx, c.front, 1024 / CARD_W)
-  if (c.frontText?.text.trim()) drawFrontText(ctx, c.frontText, 1024, 640)
+  // no caption in exports — canvas Thai text misaligns on iOS; the caption
+  // lives in the app (DOM) only
   return new Promise((res) => cv.toBlob((b) => res(b!), 'image/png'))
 }

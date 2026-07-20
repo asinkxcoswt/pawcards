@@ -57,12 +57,17 @@ src/
                       backoff). Backups & deck shares INLINE refs back to
                       data URLs — recipients/other workers can't resolve them
   lib/polish.ts       three providers, txt2img ONLY (img2img was removed — see History)
-  lib/canvas.ts       stroke render, bg-image cover draw, Thai-aware canvas text
-                      (thumbs/export only), drawFrontText (front caption on canvas)
+  lib/canvas.ts       stroke render, bg-image cover draw (drawBg resolves img:
+                      refs), paw placeholder for visually-empty thumbs. Since
+                      v3.11 text is DOM-ONLY (Khaan's call): thumbnails and ⤓
+                      export draw NO caption/answer text — the Thai-aware canvas
+                      text helpers (drawCardText/drawFrontText) remain only for
+                      the back side of paintCard, which nothing currently paints
+                      with text visible
   components/FrontTextLayer.tsx  the optional front caption: editor overlay
                       (movable full-width box, format popover) + FrontCaptionView
                       (read-only, reused by Review/RoomReview as a DOM overlay so
-                      Thai wraps natively; canvas draw only for thumbnails/export)
+                      Thai wraps natively; NOT drawn on thumbs/export since v3.11)
   lib/qrconfig.ts     encode/parse the settings-transfer QR payload (AI + sync config)
   lib/share.ts        deck sharing: deck uploads to KV (share-… id, images incl.),
                       QR carries only the pointer {url, id, name, by, count};
@@ -210,7 +215,9 @@ Friends get their own Cloudflare account + worker URL rather than a shared one.
 3. **iOS canvas `measureText` lies about Thai** — centered canvas text renders
    shifted/overflowing on iPhone only. Review answers are therefore **real DOM
    text** (`Review.tsx` overlay), which uses the browser's native Thai
-   word-breaking. Canvas text remains only for deck thumbnails.
+   word-breaking. v3.11 finished the job (Khaan's call): thumbnails and ⤓
+   export draw NO text at all — text-only thumbs show a faint paw placeholder.
+   Don't reintroduce canvas-drawn Thai anywhere user-visible.
 4. **Thai font on iOS**: the system font cascade swallows later families —
    `"Sukhumvit Set"` must be FIRST in the font stack (`--font-thai` token).
 5. **iOS PWA storage isolation**: Safari and the home-screen app have separate
@@ -266,7 +273,6 @@ Friends get their own Cloudflare account + worker URL rather than a shared one.
 ## Known gaps / roadmap candidates
 
 - No service worker → no offline page load (cards themselves are local).
-- Deck thumbnails still use canvas Thai text (cosmetic misrender possible on iOS).
 - Client-side encryption of the sync doc (WebCrypto) — discussed, not built;
   would make the Worker owner a blind host.
 - Search over backText; answer box auto-grow; per-deck style prompts.
