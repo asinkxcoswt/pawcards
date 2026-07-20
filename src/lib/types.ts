@@ -104,6 +104,10 @@ export interface RoomRef {
   /** room creator's worker sync URL incl ?key= */
   url: string
   name: string
+  /** host display name (from the invite; shown in join prompts) */
+  by?: string
+  /** ms epoch — hard expiry of the room (or its workshop server); expired rooms hide */
+  expiresAt?: number
   /** this user's member entry id in the room (stable across rejoins) */
   memberId: string
   joinedAt: number

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useStore } from '../store'
 import { syncConfigured } from '../lib/sync'
-import { newMemberId, newRoomCode, parseRoomQr, type RoomQr } from '../lib/room'
+import { expiresLabel, newMemberId, newRoomCode, roomExpired } from '../lib/room'
+import { inviteConfig, parseInvite, type InvitePayload } from '../lib/invite'
+import { newSyncId } from '../lib/settings'
 import { now } from '../lib/constants'
 import QrScanner from './QrScanner'
 import Icon from './Icon'
@@ -43,13 +45,16 @@ export default function RoomsSection() {
             <Icon name="camera" size={15} /> Join
           </button>
         </div>
-        {rooms.length > 0 && (
+        {rooms.some((r) => !roomExpired(r)) && (
           <div className="flex flex-wrap gap-2">
-            {rooms.map((r) => (
-              <button key={r.code} className="btn" data-testid={'room-chip-' + r.code} onClick={() => openRoom(r.code)}>
-                <Icon name="room" size={15} /> {r.name}
-              </button>
-            ))}
+            {rooms
+              .filter((r) => !roomExpired(r)) // expired rooms hide (re-scan a renewed invite to bring one back)
+              .map((r) => (
+                <button key={r.code} className="btn" data-testid={'room-chip-' + r.code} onClick={() => openRoom(r.code)}>
+                  <Icon name="room" size={15} /> {r.name}
+                  {r.expiresAt ? <span className="text-xs text-muted">⏳ {expiresLabel(r.expiresAt)}</span> : null}
+                </button>
+              ))}
           </div>
         )}
       </div>
@@ -65,14 +70,28 @@ function CreateRoomModal({ onClose }: { onClose: () => void }) {
   const { addRoomRef, openRoom, saveSettings, showToast } = useStore.getState()
   const [name, setName] = useState('')
   const [nickname, setNickname] = useState(settings.nickname)
+  const [expDays, setExpDays] = useState('')
 
   const create = () => {
     const roomName = name.trim()
     const by = nickname.trim()
     if (!roomName || !by) return
+    const days = parseInt(expDays, 10)
+    if (expDays.trim() && (!Number.isFinite(days) || days < 1 || days > 365)) {
+      showToast('Expiry must be 1–365 days (or leave it empty)')
+      return
+    }
     saveSettings({ nickname: by })
     const code = newRoomCode()
-    addRoomRef({ code, url: settings.syncUrl, name: roomName, memberId: newMemberId(), joinedAt: now() })
+    addRoomRef({
+      code,
+      url: settings.syncUrl,
+      name: roomName,
+      by,
+      ...(expDays.trim() ? { expiresAt: now() + days * 24 * 60 * 60 * 1000 } : {}),
+      memberId: newMemberId(),
+      joinedAt: now(),
+    })
     onClose()
     openRoom(code)
     showToast(`🏫 Room “${roomName}” created — invite friends from inside`)
@@ -90,7 +109,19 @@ function CreateRoomModal({ onClose }: { onClose: () => void }) {
         <label className="field-label">Room name</label>
         <input className="field-input mb-3" autoFocus placeholder="e.g. Thai Cooking Workshop" value={name} maxLength={48} onChange={(e) => setName(e.target.value)} data-testid="room-name" />
         <label className="field-label">Your name (shown to the group)</label>
-        <input className="field-input" placeholder="your nickname" value={nickname} maxLength={24} onChange={(e) => setNickname(e.target.value)} data-testid="room-nickname" />
+        <input className="field-input mb-3" placeholder="your nickname" value={nickname} maxLength={24} onChange={(e) => setNickname(e.target.value)} data-testid="room-nickname" />
+        <label className="field-label">Room expires after (days, optional)</label>
+        <input
+          className="field-input"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={365}
+          placeholder="empty = 60 days after last activity"
+          value={expDays}
+          onChange={(e) => setExpDays(e.target.value)}
+          data-testid="room-exp-days"
+        />
         <div className="mt-3.5 flex gap-2.5">
           <button className="btn btn-primary" disabled={!name.trim() || !nickname.trim()} data-testid="room-create-go" onClick={create}>
             <Icon name="room" size={16} /> Create room
@@ -107,13 +138,16 @@ function CreateRoomModal({ onClose }: { onClose: () => void }) {
 function JoinRoomModal({ onClose }: { onClose: () => void }) {
   const settings = useStore((s) => s.settings)
   const { addRoomRef, openRoom, saveSettings, showToast } = useStore.getState()
-  const [qr, setQr] = useState<RoomQr | null>(null)
+  const [qr, setQr] = useState<InvitePayload | null>(null)
   const [nickname, setNickname] = useState(settings.nickname)
   const [error, setError] = useState('')
 
   const onCode = (text: string) => {
     try {
-      setQr(parseRoomQr(text))
+      const p = parseInvite(text)
+      if (!p.code) throw new Error('This invite has no room in it — scan it in Settings to import the server config')
+      if (p.exp && p.exp < now()) throw new Error('This invite has expired — ask the host for a fresh one')
+      setQr(p)
       setError('')
       return true
     } catch (e) {
@@ -123,21 +157,30 @@ function JoinRoomModal({ onClose }: { onClose: () => void }) {
   }
 
   const join = () => {
-    if (!qr) return
+    if (!qr?.code) return
     const by = nickname.trim()
     if (!by) return
     saveSettings({ nickname: by })
+    // a fresh app (no server configured) adopts the room's server as its main
+    // settings — this is the QR flavour of the invite-link onboarding
+    const s = useStore.getState().settings
+    if (!s.syncUrl.trim() && !s.apiKey.trim()) {
+      saveSettings({ ...inviteConfig(qr), syncId: s.syncId.trim() || newSyncId(), onboarded: true })
+      showToast('☁ Set up with the room’s server — welcome! 🐾')
+    }
     const existing = useStore.getState().rooms.find((r) => r.code === qr.code)
     addRoomRef({
       code: qr.code,
       url: qr.url,
-      name: qr.name,
+      name: qr.name ?? 'Room',
+      ...(qr.by ? { by: qr.by } : {}),
+      ...(qr.exp ? { expiresAt: qr.exp } : {}),
       memberId: existing?.memberId ?? newMemberId(),
       joinedAt: existing?.joinedAt ?? now(),
     })
     onClose()
     openRoom(qr.code)
-    showToast(`🏫 Joined “${qr.name}”`)
+    showToast(`🏫 Joined “${qr.name ?? 'Room'}”`)
   }
 
   return (
@@ -156,7 +199,8 @@ function JoinRoomModal({ onClose }: { onClose: () => void }) {
         )}
         {qr && (
           <>
-            <h2 className="m-0 mb-1 text-[17px] font-bold">Join “{qr.name}”?</h2>
+            <h2 className="m-0 mb-1 text-[17px] font-bold">Join “{qr.name ?? 'Room'}”?</h2>
+            {qr.exp ? <p className="hint mb-2">⏳ {expiresLabel(qr.exp)} · until {new Date(qr.exp).toLocaleDateString()}</p> : null}
             <label className="field-label">Your name (shown to the group)</label>
             <input className="field-input" autoFocus placeholder="your nickname" value={nickname} maxLength={24} onChange={(e) => setNickname(e.target.value)} data-testid="join-nickname" />
             <div className="mt-3.5 flex gap-2.5">

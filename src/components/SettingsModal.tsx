@@ -6,7 +6,9 @@ import { syncConfigured } from '../lib/sync'
 import type { Provider } from '../lib/types'
 import type { ConfigPayload } from '../lib/qrconfig'
 import ConfirmButton from './ConfirmButton'
+import InstallPrompt from './InstallPrompt'
 import QrConfigModal from './QrConfigModal'
+import { detectPlatform, isStandalone } from '../lib/pwa'
 import Icon from './Icon'
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
@@ -27,6 +29,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const [qrMode, setQrMode] = useState<'show' | 'scan' | null>(null)
   const [qrShare, setQrShare] = useState<'device' | 'friend'>('device')
   const [qrMenu, setQrMenu] = useState(false)
+  const [showInstall, setShowInstall] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const applyScanned = (cfg: ConfigPayload) => {
@@ -342,6 +345,19 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           />
         </div>
 
+        {!isStandalone() && (detectPlatform() === 'ios' || detectPlatform() === 'android') && (
+          <>
+            <hr className="my-4.5 border-0 border-t border-line" />
+            <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold"><Icon name="install" size={17} /> Install as app</h2>
+            <p className="hint mb-3.5">
+              Enjoying PawCards? Add it to your home screen — full screen, opens instantly, feels native.
+            </p>
+            <button className="btn" data-testid="settings-install" onClick={() => setShowInstall(true)}>
+              <Icon name="install" size={16} /> Show me how
+            </button>
+          </>
+        )}
+
         <hr className="my-4.5 border-0 border-t border-line" />
         <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold"><Icon name="backup" size={17} /> Backup</h2>
         <p className="hint mb-3.5">
@@ -371,6 +387,9 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
         />
         <p className="hint mt-3.5 text-center">PawCards v{APP_VERSION} 🐾</p>
       </div>
+      {showInstall && (
+        <InstallPrompt platform={detectPlatform() as 'ios' | 'android'} onDone={() => setShowInstall(false)} />
+      )}
       {qrMode && (
         <QrConfigModal
           mode={qrMode}

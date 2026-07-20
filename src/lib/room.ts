@@ -48,9 +48,25 @@ export interface RoomState {
   name: string
   host: string
   createdAt: number
+  /** 0/missing = no hard expiry (60d-inactivity wipe only) */
+  expiresAt?: number
   members: { memberId: string; name: string }[]
   decks: RoomDeckMeta[]
   review?: RoomReviewState | null
+}
+
+/* ---------- expiry helpers (pills, RoomView banner) ---------- */
+
+export function roomExpired(r: { expiresAt?: number }, t = Date.now()): boolean {
+  return !!r.expiresAt && t > r.expiresAt
+}
+
+/** short human label for a hard expiry, e.g. "12d left" / "expires today" */
+export function expiresLabel(expiresAt: number, t = Date.now()): string {
+  const days = Math.floor((expiresAt - t) / (24 * 60 * 60 * 1000))
+  if (days < 0) return 'expired'
+  if (days === 0) return 'expires today'
+  return days + 'd left'
 }
 
 export type RoomStatus = 'connecting' | 'live' | 'error'
@@ -85,10 +101,20 @@ export function parseRoomQr(text: string): RoomQr {
   return { url: o.url, code: o.code, name: typeof o.name === 'string' ? o.name : 'Room' }
 }
 
-export function roomSocketUrl(url: string, code: string, memberId: string, name: string, roomName: string): string {
+export function roomSocketUrl(
+  url: string,
+  code: string,
+  memberId: string,
+  name: string,
+  roomName: string,
+  expiresAt?: number,
+): string {
   const u = new URL(url)
   const proto = u.protocol === 'http:' ? 'ws:' : 'wss:'
   const q = new URLSearchParams({ key: u.searchParams.get('key') ?? '', member: memberId, name, room: roomName })
+  // the DO fixes the hard expiry from the FIRST connector (the host, per the
+  // "join your own room before sharing the invite" flow)
+  if (expiresAt) q.set('exp', String(expiresAt))
   return proto + '//' + u.host + '/room/' + code + '?' + q.toString()
 }
 
@@ -98,7 +124,7 @@ export function roomSocketUrl(url: string, code: string, memberId: string, name:
  * usually means the worker isn't deployed with room support yet.
  */
 export function useRoom(
-  ref: { url: string; code: string; memberId: string; name: string } | undefined,
+  ref: { url: string; code: string; memberId: string; name: string; expiresAt?: number } | undefined,
   myName: string,
 ): { state: RoomState | null; status: RoomStatus; send: (msg: object) => void } {
   const [state, setState] = useState<RoomState | null>(null)
@@ -114,6 +140,7 @@ export function useRoom(
   const code = ref?.code
   const memberId = ref?.memberId
   const roomName = ref?.name
+  const expiresAt = ref?.expiresAt
 
   useEffect(() => {
     if (!url || !code || !memberId) return
@@ -123,7 +150,7 @@ export function useRoom(
     let timer: ReturnType<typeof setTimeout> | undefined
 
     const connect = () => {
-      const ws = new WebSocket(roomSocketUrl(url, code, memberId, myName || 'me', roomName ?? 'Room'))
+      const ws = new WebSocket(roomSocketUrl(url, code, memberId, myName || 'me', roomName ?? 'Room', expiresAt))
       wsRef.current = ws
       ws.onmessage = (e) => {
         try {
@@ -163,7 +190,7 @@ export function useRoom(
       }
       wsRef.current = null
     }
-  }, [url, code, memberId, roomName, myName])
+  }, [url, code, memberId, roomName, myName, expiresAt])
 
   return { state, status, send }
 }

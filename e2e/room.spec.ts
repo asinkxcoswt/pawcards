@@ -1,6 +1,6 @@
 import { expect, test, type Page, type WebSocketRoute } from '@playwright/test'
 import jsQR from 'jsqr'
-import { parseRoomQr } from '../src/lib/room'
+import { parseInvite } from '../src/lib/invite'
 import { createDeckAndCard, resetApp, store } from './helpers'
 
 const WORKER = 'https://pawroom.test.workers.dev'
@@ -296,7 +296,7 @@ test('room: live create, share, join, import, leave', async ({ browser }) => {
 
   /* ---- invite QR decodes to the room pointer ---- */
   await A.getByTestId('room-invite').click()
-  const invite = parseRoomQr(await decodeCanvas(A, 'room-qr-canvas'))
+  const invite = parseInvite(await decodeCanvas(A, 'room-qr-canvas'))
   expect(invite.name).toBe('Thai Cooking')
   expect(invite.url).toBe(WORKER + '/?key=pw')
   await A.getByText('Close').click()

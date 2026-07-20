@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { useStore } from '../store'
-import { encodeRoomQr, fetchRoomDeck, ROOM_PROTO, shareDeckToRoom, unshareDeckFromRoom, useRoom, type RoomDeckMeta } from '../lib/room'
+import { expiresLabel, fetchRoomDeck, ROOM_PROTO, shareDeckToRoom, unshareDeckFromRoom, useRoom, type RoomDeckMeta } from '../lib/room'
+import { encodeInvite, inviteLink, type InvitePayload } from '../lib/invite'
 import { shareableCards, type ShareDoc } from '../lib/share'
 import ConfirmButton from './ConfirmButton'
 import QrShareButton from './QrShareButton'
@@ -150,6 +151,11 @@ export default function RoomView() {
               ? '⏳ Connecting to the room…'
               : ''}
         </p>
+        {(state?.expiresAt || ref.expiresAt) ? (
+          <p className="hint mb-3" data-testid="room-expiry">
+            ⏳ Room expires {new Date(state?.expiresAt || ref.expiresAt!).toLocaleDateString()} ({expiresLabel(state?.expiresAt || ref.expiresAt!)})
+          </p>
+        ) : null}
         {status === 'live' && state && (state.proto ?? 0) < ROOM_PROTO && (
           <p className="hint mb-3 text-again" data-testid="room-proto-warning">
             ⚠ This room's worker is older than your app — group review and unshare won't work until the room creator
@@ -262,7 +268,18 @@ export default function RoomView() {
         <RoomReview roomRef={ref} state={state} review={review} cache={cacheRef.current} send={send} onExit={() => setInReview(false)} />
       )}
 
-      {invite && <InviteModal name={ref.name} url={ref.url} code={ref.code} onClose={() => setInvite(false)} />}
+      {invite && (
+        <InviteModal
+          payload={{
+            url: ref.url,
+            code: ref.code,
+            name: ref.name,
+            by: ref.by || settings.nickname || undefined,
+            exp: ref.expiresAt,
+          }}
+          onClose={() => setInvite(false)}
+        />
+      )}
 
       {showStart && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-[rgba(30,25,18,.4)]" onClick={(e) => e.target === e.currentTarget && setShowStart(false)}>
@@ -356,15 +373,30 @@ export default function RoomView() {
   )
 }
 
-function InviteModal({ name, url, code, onClose }: { name: string; url: string; code: string; onClose: () => void }) {
+function InviteModal({ payload, onClose }: { payload: InvitePayload; onClose: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const { showToast } = useStore.getState()
   const [error, setError] = useState('')
+  const name = payload.name ?? 'Room'
   useEffect(() => {
     if (!canvasRef.current) return
-    QRCode.toCanvas(canvasRef.current, encodeRoomQr({ url, code, name }), { errorCorrectionLevel: 'M', width: 300, margin: 2 }).catch(
+    QRCode.toCanvas(canvasRef.current, encodeInvite(payload), { errorCorrectionLevel: 'M', width: 300, margin: 2 }).catch(
       (e: Error) => setError('Could not draw QR: ' + e.message),
     )
-  }, [url, code, name])
+    // payload is built fresh by the caller each open — key on its stable parts
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payload.url, payload.code, payload.name, payload.by, payload.exp])
+
+  const copyLink = async () => {
+    const link = inviteLink(location.origin, payload)
+    try {
+      await navigator.clipboard.writeText(link)
+      showToast('🔗 Invite link copied — paste it into your group chat')
+    } catch {
+      showToast('Could not copy — long-press the QR instead')
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-[rgba(30,25,18,.4)]" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="w-full max-w-[560px] rounded-t-[20px] bg-panel p-5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
@@ -372,12 +404,18 @@ function InviteModal({ name, url, code, onClose }: { name: string; url: string; 
           <Icon name="qr" size={17} /> Invite to “{name}”
         </h2>
         <p className="hint mb-3.5">
-          Friends: PawCards → 🏫 Rooms → 📷 Join → scan this. Anyone with this code can use the room's worker, so keep
-          it within your group.
+          Friends with PawCards: 🏫 Rooms → 📷 Join → scan this. New friends: send them the link — it sets everything
+          up. Anyone with it can use the room's worker, so keep it within your group.
+          {payload.exp ? ` ⏳ ${expiresLabel(payload.exp)}.` : ''}
         </p>
         <div className="flex flex-col items-center">
           <canvas ref={canvasRef} className="rounded-lg" data-testid="room-qr-canvas" />
-          <QrShareButton canvasRef={canvasRef} filename={`pawcards-room-${name}.png`} title={`Join my PawCards room: ${name}`} />
+          <div className="flex gap-2.5">
+            <button className="btn" data-testid="room-copy-link" onClick={() => void copyLink()}>
+              <Icon name="link" size={15} /> Copy invite link
+            </button>
+            <QrShareButton canvasRef={canvasRef} filename={`pawcards-room-${name}.png`} title={`Join my PawCards room: ${name}`} />
+          </div>
         </div>
         {error && <p className="hint mt-3 text-again">{error}</p>}
         <button className="btn btn-ghost mt-4" onClick={onClose}>

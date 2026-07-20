@@ -69,6 +69,25 @@ src/
                       (read-only, reused by Review/RoomReview as a DOM overlay so
                       Thai wraps natively; NOT drawn on thumbs/export since v3.11)
   lib/qrconfig.ts     encode/parse the settings-transfer QR payload (AI + sync config)
+  lib/invite.ts       generalized room QR v2 = onboarding invite (v3.12): payload
+                      {url incl ?key, code?, name?, by?, exp?} — `url` IS the
+                      settings (one worker serves generation+sync+rooms, so
+                      inviteConfig derives full main settings from it). Two
+                      containers: room QR (JSON) and ready-to-share link
+                      https://<app>/?openExternalBrowser=1#ws=<base64url>
+                      (fragment → key stays out of server logs + Line's crawler;
+                      openExternalBrowser=1 escapes Line's in-app webview).
+                      components/InviteGate.tsx applies it on boot: fresh app
+                      (no syncUrl/apiKey) adopts settings + mints its own syncId
+                      + room pill + "X invites you" Join/Skip popup; configured
+                      apps only gain the RoomRef (bridge — own url/key per room).
+                      The #ws= fragment STAYS in the URL: iOS A2HS keeps the
+                      current URL, so the installed PWA relaunches with the
+                      invite and re-applies it into its separate storage
+                      (idempotent: already-joined → quiet). Settings-page
+                      scanner also accepts invite QRs but IGNORES the room
+                      (deliberate settings replace); Rooms→Join on a fresh app
+                      adopts settings too (QR flavour of the link).
   lib/share.ts        deck sharing: deck uploads to KV (share-… id, images incl.),
                       QR carries only the pointer {url, id, name, by, count};
                       shareableCards() drops card.private (🔒) from every share
@@ -122,6 +141,16 @@ bunx wrangler login           # once per machine
 bun worker/deploy.ts          # main stack (profile "pawcards-polish")
 bun worker/deploy.ts paw-test # another stack; scaffolds worker/stacks/paw-test.json
 bun worker/deploy.ts NAME --rotate-key  # new SECRET (old QR configs stop working)
+# workshop stacks (v3.12): a disposable server for a class/cohort
+bun worker/deploy.ts my-shop --ephemeral 30d --room "My Room" --host-name John
+#   → EXPIRES var (worker 403s everything after; expiry persists in the profile
+#     so re-deploys don't silently un-expire; re-run --ephemeral to renew),
+#     mints a room code, prints the ready-to-share #ws= link + invite QR card.
+#     Link/QR require a mintable key (new stack or --rotate-key). JOIN YOUR OWN
+#     ROOM FIRST — first connector becomes host.
+bun worker/deploy.ts my-shop --destroy  # deletes worker + profile-created KV
+#   (refuses the main stack + hex-pinned namespaces; profile "app" field sets
+#    the link's app origin, default pawcards.littlepawcraft.com)
 ```
 
 Each stack has an editable profile `worker/stacks/<profile>.json`
@@ -158,12 +187,17 @@ Endpoints (all CORS `*`; `?key=SECRET` gates everything):
   device may have uploaded a blob but not yet pushed the doc referencing it).
   The app calls it at most once/day after a successful push (localStorage
   `paw-img-gc-at`), passing every ref in the merged doc.
-- `WS /room/<code>?key=&member=&name=&room=` — rooms, via the **PawRoom
+- `WS /room/<code>?key=&member=&name=&room=&exp=` — rooms, via the **PawRoom
   Durable Object** (binding `ROOM`, SQLite-backed, free plan, WebSocket
   hibernation). Presence = open sockets; state (meta + deck pointers) in DO
-  storage; alarm wipes a room 60d after last activity. Deploy REQUIRES the
-  wrangler.toml `[[durable_objects.bindings]]` + `[[migrations]]` blocks
+  storage; alarm wipes a room 60d after last activity, capped by the hard
+  expiry the FIRST connector sets via `?exp=` (v3.12; connect after → 410;
+  state broadcasts `expiresAt`). Deploy REQUIRES the wrangler.toml
+  `[[durable_objects.bindings]]` + `[[migrations]]` blocks
   (copy in `worker/wrangler.toml`) — without them: "ROOM binding missing".
+- **Ephemeral stacks** (v3.12): an `EXPIRES` var (set by deploy.ts
+  --ephemeral) makes the whole worker 403 every request past the date —
+  workshop invite keys die with it.
 
 Free-tier notes: Workers AI = 10k neurons/day **per account** (not per worker);
 KV = 1k writes/day (sync is user-triggered or on open/hide, never on a timer).
@@ -195,11 +229,20 @@ Friends get their own Cloudflare account + worker URL rather than a shared one.
 - Settings save in real time (no Save button since v3.1); emptied
   apiUrl/model/prompt fields restore their defaults on blur. Settings never
   sync (per-device).
-- **Rooms**: `Doc.rooms` (RoomRef: code/url/memberId) DOES sync — per-code
-  newest-wins union in mergeRemote; leaving tombstones the room code. Live
-  room state is PUSHED over a WebSocket to the room's Durable Object (v3.2 —
-  replaced the KV ?list= polling design Khaan found confusing); create/join
-  are pure-local (RoomRef only), the room comes alive when RoomView connects.
+- **Rooms**: `Doc.rooms` (RoomRef: code/url/memberId + v3.12 by/expiresAt)
+  DOES sync — per-code newest-wins union in mergeRemote; leaving tombstones
+  the room code. Live room state is PUSHED over a WebSocket to the room's
+  Durable Object (v3.2 — replaced the KV ?list= polling design Khaan found
+  confusing); create/join are pure-local (RoomRef only), the room comes alive
+  when RoomView connects. Rooms are the CROSS-SERVER BRIDGE (v3.12, Khaan's
+  architecture): each RoomRef carries its own worker url+key, and ALL room KV
+  ops (deck-share uploads via shareDeckToRoom, fetches) go through it — your
+  private key never enters a room. Room hard expiry: first connector fixes
+  meta.expiresAt on the DO (?exp= socket param; alarm = min(60d inactivity,
+  exp), 410 after); expired rooms hide from Home pills (not deleted — a
+  renewed invite re-scan brings them back); in-app Create asks optional exp
+  days. Onboarding invite links/QRs are this same RoomRef payload — see
+  lib/invite.ts in Layout.
 
 ## Hard-won lessons (do not re-learn these)
 

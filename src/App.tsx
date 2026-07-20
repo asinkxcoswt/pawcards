@@ -10,8 +10,15 @@ import Review from './components/Review'
 import RoomView from './components/RoomView'
 import Onboarding from './components/Onboarding'
 import InstallPrompt from './components/InstallPrompt'
+import InviteGate from './components/InviteGate'
+import { parseInviteFragment } from './lib/invite'
 import { detectPlatform, installDismissed, isStandalone } from './lib/pwa'
 import Toast from './components/Toast'
+
+// parsed once at module load; the fragment stays in the URL on purpose — iOS
+// Add-to-Home-Screen keeps the current URL, so the installed PWA relaunches
+// with the invite and re-applies it into its own storage (see InviteGate)
+const bootInvite = typeof location !== 'undefined' ? parseInviteFragment(location.hash) : null
 
 export default function App() {
   const screen = useStore((s) => s.screen)
@@ -23,7 +30,11 @@ export default function App() {
   // offer "add to home screen" in a mobile browser tab (once, until dismissed/installed)
   const installPlatform = detectPlatform()
   const [installOffered, setInstallOffered] = useState(
-    () => isStandalone() || installDismissed() || (installPlatform !== 'ios' && installPlatform !== 'android'),
+    () =>
+      isStandalone() ||
+      installDismissed() ||
+      bootInvite !== null || // invited users aren't rushed to install — Settings has it
+      (installPlatform !== 'ios' && installPlatform !== 'android'),
   )
   const [updateTo, setUpdateTo] = useState<string | null>(null)
   const updateDismissed = useRef(false)
@@ -79,9 +90,11 @@ export default function App() {
 
   // install invite comes first; onboarding waits until it's answered
   const showInstall = !installOffered
-  // only on a genuinely fresh install: nothing created, nothing configured, not skipped
+  // only on a genuinely fresh install: nothing created, nothing configured,
+  // not skipped — and no invite link (InviteGate does the onboarding then)
   const showOnboarding =
     !showInstall &&
+    !bootInvite &&
     !settings.onboarded &&
     decks.length === 0 &&
     cards.length === 0 &&
@@ -99,6 +112,7 @@ export default function App() {
         <InstallPrompt platform={installPlatform as 'ios' | 'android'} onDone={() => setInstallOffered(true)} />
       )}
       {showOnboarding && <Onboarding />}
+      {bootInvite && <InviteGate invite={bootInvite} />}
       <Toast />
       {updateTo && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(30,25,18,.4)]">

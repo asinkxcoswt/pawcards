@@ -76,6 +76,15 @@ export default {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: CORS });
     }
+    // Ephemeral workshop stacks (deploy.ts --ephemeral) carry an EXPIRES var:
+    // past it, the whole server politely refuses — the shared key in old
+    // invite links/QRs stops working, which is the point of ephemeral stacks.
+    const expires = Number((env && env.EXPIRES) || 0);
+    if (expires && Date.now() > expires) {
+      return json(403, {
+        error: "this workshop server expired on " + new Date(expires).toISOString().slice(0, 10) + " — ask the host for a new invite",
+      });
+    }
     const url = new URL(request.url);
     const secret = (env && env.SECRET) || SECRET;
 
@@ -284,6 +293,13 @@ export class PawRoom {
     this.env = env;
   }
 
+  /** inactivity TTL, capped by the room's hard expiry when one was set */
+  async bumpAlarm() {
+    const meta = (await this.state.storage.get("meta")) || {};
+    const next = Date.now() + ROOM_TTL_MS;
+    await this.state.storage.setAlarm(meta.expiresAt ? Math.min(next, meta.expiresAt) : next);
+  }
+
   async fetch(request) {
     if (request.headers.get("Upgrade") !== "websocket") {
       return json(426, { error: "expected a websocket connection" });
@@ -292,14 +308,20 @@ export class PawRoom {
     const memberId = (url.searchParams.get("member") || "").slice(0, 32) || "anon";
     const name = (url.searchParams.get("name") || "?").slice(0, 24);
     const roomName = (url.searchParams.get("room") || "Room").slice(0, 48);
+    const exp = Number(url.searchParams.get("exp") || 0);
 
-    // the first person to connect names the room and becomes its host
+    // the first person to connect names the room, becomes its host, and
+    // fixes its hard expiry (later connectors can't change it)
     let meta = await this.state.storage.get("meta");
     if (!meta) {
-      meta = { name: roomName, host: name, createdAt: Date.now() };
+      meta = { name: roomName, host: name, createdAt: Date.now(), expiresAt: exp > Date.now() ? exp : 0 };
       await this.state.storage.put("meta", meta);
     }
-    await this.state.storage.setAlarm(Date.now() + ROOM_TTL_MS);
+    if (meta.expiresAt && Date.now() > meta.expiresAt) {
+      await this.alarm(); // wipe now rather than waiting for the scheduled run
+      return json(410, { error: "this room has expired" });
+    }
+    await this.bumpAlarm();
 
     const pair = new WebSocketPair();
     this.state.acceptWebSocket(pair[1]);
@@ -327,7 +349,7 @@ export class PawRoom {
         decks.push(meta);
       }
       await this.state.storage.put("decks", decks);
-      await this.state.storage.setAlarm(Date.now() + ROOM_TTL_MS);
+      await this.bumpAlarm();
       await this.broadcast();
     }
 
@@ -337,7 +359,7 @@ export class PawRoom {
       if (!entry) return;
       if (entry.memberId && entry.memberId !== a.memberId) return; // sharer-only
       await this.state.storage.put("decks", decks.filter((d) => d.deckId !== m.deckId));
-      await this.state.storage.setAlarm(Date.now() + ROOM_TTL_MS);
+      await this.bumpAlarm();
       await this.broadcast();
       // the share-… payload in KV is left to its 60-day TTL
     }
@@ -357,7 +379,7 @@ export class PawRoom {
         hostName: a.name,
         startedAt: Date.now(),
       });
-      await this.state.storage.setAlarm(Date.now() + ROOM_TTL_MS);
+      await this.bumpAlarm();
       await this.broadcast();
     }
     if (m.type === "review-flip" || m.type === "review-next" || m.type === "review-end") {
@@ -398,7 +420,7 @@ export class PawRoom {
     }
     // proto lets the app detect an out-of-date worker instead of failing silently
     // (2 = deck re-share/unshare + group review)
-    const state = JSON.stringify({ type: "state", proto: 2, name: meta.name, host: meta.host, createdAt: meta.createdAt, members, decks, review });
+    const state = JSON.stringify({ type: "state", proto: 2, name: meta.name, host: meta.host, createdAt: meta.createdAt, expiresAt: meta.expiresAt || 0, members, decks, review });
     for (const ws of sockets) {
       try { ws.send(state); } catch { /* closing socket — presence updates on its close event */ }
     }

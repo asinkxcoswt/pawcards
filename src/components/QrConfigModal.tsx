@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
+import { inviteConfig, parseInvite } from '../lib/invite'
 import { encodeConfig, parseConfig, type ConfigPayload } from '../lib/qrconfig'
 import QrScanner from './QrScanner'
 import Icon from './Icon'
@@ -39,15 +40,23 @@ export default function QrConfigModal({ mode, variant = 'device', config, onAppl
     }).catch((e: Error) => setError('Could not draw QR: ' + e.message))
   }, [mode, config])
 
-  // scan mode: camera or picked image, until a valid payload is found
+  // scan mode: camera or picked image, until a valid payload is found.
+  // Room/workshop invite QRs are accepted too — scanning one HERE is a
+  // deliberate "replace my settings", so the room part is ignored.
   const onCode = (text: string) => {
     try {
       setScanned(parseConfig(text))
       setError('')
       return true
-    } catch (e) {
-      setError((e as Error).message) // wrong QR — keep scanning
-      return false
+    } catch (configErr) {
+      try {
+        setScanned(inviteConfig(parseInvite(text)))
+        setError('')
+        return true
+      } catch {
+        setError((configErr as Error).message) // wrong QR — keep scanning
+        return false
+      }
     }
   }
 
