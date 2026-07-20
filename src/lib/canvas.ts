@@ -189,8 +189,9 @@ export function drawFrontText(ctx: CanvasRenderingContext2D, ft: FrontText, w: n
   const padX = 14 * scale
   const padY = 10 * scale
   const lines = wrapLines(ctx, clean, w - padX * 2)
-  const boxTop = Math.max(0, Math.min(h, ft.y * h))
   const boxH = lines.length * lh + padY * 2
+  // clamp like the DOM CaptionSlot: the box never hangs past the card bottom
+  const boxTop = Math.max(0, Math.min(ft.y * h, h - boxH))
   if (ft.bg !== 'none' && ft.bgAlpha > 0) {
     ctx.globalAlpha = ft.bgAlpha
     ctx.fillStyle = ft.bg

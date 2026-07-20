@@ -21,6 +21,11 @@ test('add a front caption: appears via the Text tool, styles apply, survives to 
   await page.getByTestId('front-text-done').click()
   await expect(page.getByTestId('front-text-display')).toContainText('powerhouse of the cell')
 
+  // by default the caption sits flush at the card's bottom edge
+  const cv = (await page.locator('section canvas').boundingBox())!
+  const disp = (await page.getByTestId('front-text-display').boundingBox())!
+  expect(Math.abs(cv.y + cv.height - (disp.y + disp.height))).toBeLessThanOrEqual(2)
+
   // the caption shows on the FRONT in review (and is a real DOM node)
   await page.getByTestId('back').click() // editor → deck
   await page.evaluate(() => (window as any).__store.getState().startCram((window as any).__store.getState().decks[0].id))

@@ -1,6 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import { useStore } from '../store'
-import { CARD_H, CARD_W, PEN_COLORS } from '../lib/constants'
+import { CARD_W, PEN_COLORS } from '../lib/constants'
 import type { FrontText } from '../lib/types'
 import Icon from './Icon'
 
@@ -19,6 +19,21 @@ function rgba(hex: string, a: number): string {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`
 }
 
+/**
+ * Positioning wrapper: a full-card column with a SHRINKABLE spacer above the
+ * box. If y would push the box past the card's bottom edge, the spacer shrinks
+ * — so the box always clamps flush to the bottom instead of hanging off it
+ * (y = 1 means "stick to the bottom", the default).
+ */
+function CaptionSlot({ y, children }: { y: number; children: React.ReactNode }) {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-[6] flex flex-col">
+      <div style={{ height: `${y * 100}%`, flexShrink: 1, minHeight: 0 }} />
+      {children}
+    </div>
+  )
+}
+
 /** read-only caption, positioned/styled from `ft` — used in the editor (idle),
  *  Review, and anywhere the front is shown as DOM. */
 export function FrontCaptionView({
@@ -32,28 +47,32 @@ export function FrontCaptionView({
   onClick?: () => void
   testId?: string
 }) {
-  const cardH = (cardW * CARD_H) / CARD_W
   const fontPx = (ft.size * cardW) / CARD_W
   return (
-    <div
-      className="absolute inset-x-0 z-[6]"
-      style={{ top: ft.y * cardH, background: ft.bg === 'none' ? 'transparent' : rgba(ft.bg, ft.bgAlpha) }}
-      onClick={onClick}
-      data-testid={testId}
-    >
+    <CaptionSlot y={ft.y}>
       <div
-        className="w-full whitespace-pre-wrap px-[3.5%] py-[2.5%]"
-        style={{ color: ft.color, fontSize: fontPx, lineHeight: 1.35, textAlign: ft.align, fontFamily: 'var(--font-thai)', overflowWrap: 'anywhere' }}
+        className="pointer-events-auto w-full whitespace-pre-wrap px-[3.5%] py-[2.5%]"
+        style={{
+          background: ft.bg === 'none' ? 'transparent' : rgba(ft.bg, ft.bgAlpha),
+          color: ft.color,
+          fontSize: fontPx,
+          lineHeight: 1.35,
+          textAlign: ft.align,
+          fontFamily: 'var(--font-thai)',
+          overflowWrap: 'anywhere',
+        }}
+        onClick={onClick}
+        data-testid={testId}
       >
         {ft.text || ' '}
       </div>
-    </div>
+    </CaptionSlot>
   )
 }
 
 export const defaultFrontText = (): FrontText => ({
   text: '',
-  y: 0.72,
+  y: 1, // stick to the bottom (clamped) until the user moves it
   size: 44,
   color: '#ffffff',
   align: 'center',
@@ -87,7 +106,6 @@ export default function FrontTextLayer({
   const taRef = useRef<HTMLTextAreaElement>(null)
   const patch = (p: Partial<FrontText>) => setFrontText(cardId, { ...ft, ...p })
 
-  const cardH = (cardW * CARD_H) / CARD_W
   const fontPx = (ft.size * cardW) / CARD_W
 
   useEffect(() => {
@@ -108,7 +126,8 @@ export default function FrontTextLayer({
     const move = (ev: PointerEvent) => {
       const box = cardElRef.current?.getBoundingClientRect()
       if (!box) return
-      patch({ y: Math.max(0, Math.min(0.95, (ev.clientY - box.top) / box.height)) })
+      // 1 = flush to the bottom (CaptionSlot clamps the box inside the card)
+      patch({ y: Math.max(0, Math.min(1, (ev.clientY - box.top) / box.height)) })
     }
     const up = () => {
       window.removeEventListener('pointermove', move)
@@ -121,17 +140,21 @@ export default function FrontTextLayer({
   return (
     <>
       {selected ? (
-        <div className="absolute inset-x-0 z-[6]" style={{ top: ft.y * cardH, background: ft.bg === 'none' ? 'transparent' : rgba(ft.bg, ft.bgAlpha) }}>
-          <button
-            className="absolute -top-3.5 right-1 z-[7] flex h-7 w-7 items-center justify-center rounded-full bg-ink text-white shadow-soft"
-            aria-label="Move caption"
-            data-testid="front-text-move"
-            onPointerDown={drag}
-            style={{ touchAction: 'none' }}
+        <CaptionSlot y={ft.y}>
+          <div
+            className="pointer-events-auto relative w-full"
+            style={{ background: ft.bg === 'none' ? 'transparent' : rgba(ft.bg, ft.bgAlpha) }}
           >
-            <Icon name="move" size={15} />
-          </button>
-          <textarea
+            <button
+              className="absolute -top-3.5 right-1 z-[7] flex h-7 w-7 items-center justify-center rounded-full bg-ink text-white shadow-soft"
+              aria-label="Move caption"
+              data-testid="front-text-move"
+              onPointerDown={drag}
+              style={{ touchAction: 'none' }}
+            >
+              <Icon name="move" size={15} />
+            </button>
+            <textarea
             ref={taRef}
             rows={1}
             className="block w-full resize-none overflow-hidden border-0 bg-transparent px-[3.5%] py-[2.5%] outline-none"
@@ -151,8 +174,9 @@ export default function FrontTextLayer({
             data-testid="front-text-input"
             onInput={grow}
             onChange={(e) => patch({ text: e.target.value })}
-          />
-        </div>
+            />
+          </div>
+        </CaptionSlot>
       ) : (
         <FrontCaptionView ft={ft} cardW={cardW} onClick={onSelect} testId="front-text-display" />
       )}
