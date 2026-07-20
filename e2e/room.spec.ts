@@ -298,7 +298,12 @@ test('room: live create, share, join, import, leave', async ({ browser }) => {
   await A.getByTestId('room-invite').click()
   const invite = parseInvite(await decodeCanvas(A, 'room-qr-canvas'))
   expect(invite.name).toBe('Thai Cooking')
-  expect(invite.url).toBe(WORKER + '/?key=pw')
+  // v3.13: the invite carries a signed TEMP key on the same worker — the
+  // host's root key ("pw") must never appear in a QR
+  const inviteUrl = new URL(invite.url)
+  expect(inviteUrl.origin).toBe(WORKER)
+  expect(inviteUrl.searchParams.get('key')).toMatch(/^pt_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/)
+  expect(invite.url).not.toContain('key=pw')
   await A.getByText('Close').click()
 
   /* ---- friend joins: presence pushes to BOTH devices instantly ---- */

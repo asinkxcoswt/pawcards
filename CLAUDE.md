@@ -137,18 +137,22 @@ local provisioning script (the earlier littlepawcraft-repo Workers Builds
 pipeline was retired 2026-07 at Khaan's request):
 
 ```bash
-bunx wrangler login           # once per machine
-bun worker/deploy.ts          # main stack (profile "pawcards-polish")
-bun worker/deploy.ts paw-test # another stack; scaffolds worker/stacks/paw-test.json
-bun worker/deploy.ts NAME --rotate-key  # new SECRET (old QR configs stop working)
-# workshop stacks (v3.12): a disposable server for a class/cohort
-bun worker/deploy.ts my-shop --ephemeral 30d --room "My Room" --host-name John
-#   → EXPIRES var (worker 403s everything after; expiry persists in the profile
-#     so re-deploys don't silently un-expire; re-run --ephemeral to renew),
-#     mints a room code, prints the ready-to-share #ws= link + invite QR card.
-#     Link/QR require a mintable key (new stack or --rotate-key). JOIN YOUR OWN
-#     ROOM FIRST — first connector becomes host.
-bun worker/deploy.ts my-shop --destroy  # deletes worker + profile-created KV
+bunx wrangler login                          # once per machine
+bun worker/cli.ts <profile> deploy [--kv NAME]  # create/update a stack; --kv only
+#   needed the first time (profile remembers it; identifier-shaped TITLE to
+#   find-or-create, or a 32-hex id to bind as-is). First deploy mints the root
+#   SECRET, saves it to gitignored worker/.wrangler.<worker>.secret.json,
+#   and opens the settings QR card.
+bun worker/cli.ts <profile> rotate-key       # new SECRET — kills every old key
+#   AND every outstanding temp/room invite at once; opens a fresh settings QR
+bun worker/cli.ts <profile> create-room --exp 30d [--name "My Room"] [--host-name John]
+#   → NO deploy/network needed: signs a STATELESS TEMP KEY locally from the
+#     saved root (see lib/tempkey.ts), mints a room code, prints the
+#     ready-to-share #ws= link + opens the invite QR card. The invite carries
+#     ONLY the temp key — it dies at --exp. JOIN YOUR OWN ROOM FIRST — the
+#     first connector becomes host. This replaced the v3.12 --ephemeral/EXPIRES
+#     whole-server expiry (never used in a real workshop, removed v3.13).
+bun worker/cli.ts <profile> destroy          # deletes worker + profile-created KV
 #   (refuses the main stack + hex-pinned namespaces; profile "app" field sets
 #    the link's app origin, default pawcards.littlepawcraft.com)
 ```
@@ -168,7 +172,15 @@ reference-only documentation. When a run mints a key (new stack or
 styled like the in-app QR sheet, shows env + date) that the app imports via
 Settings → 📷 Scan settings QR; syncId is blank so devices keep their own.
 
-Endpoints (all CORS `*`; `?key=SECRET` gates everything):
+Endpoints (all CORS `*`; `?key=` gates everything via `authKey`: the root
+SECRET **or a stateless temp key** `pt_<b64u(exp)>.<b64u(HMAC_SHA256(root,
+"pawtemp:"+exp))>` — v3.13, mirror implementations in `src/lib/tempkey.ts`
+(mint, app+CLI) and `pawcards-worker.js` (verify; cross-checked by
+tests/tempkey.test.ts). exp is inside the MAC (tamper-proof); only root
+holders can mint (attendees RESHARE their pt_ key — `urlWithTempKey` is a
+no-op on temp urls); rotating SECRET invalidates all temp keys at once; no
+KV involved. Room invites (in-app + CLI) always carry a temp key — the root
+key never enters a QR/link):
 - `POST /` — image generation. Body `{prompt, init_images?, ...}` → `{images:[b64]}`.
   No `init_images` → **txt2img via `@cf/black-forest-labs/flux-1-schnell`** (the
   only path the app uses now). With `init_images` → img2img via SD1.5 (legacy,
@@ -195,9 +207,6 @@ Endpoints (all CORS `*`; `?key=SECRET` gates everything):
   state broadcasts `expiresAt`). Deploy REQUIRES the wrangler.toml
   `[[durable_objects.bindings]]` + `[[migrations]]` blocks
   (copy in `worker/wrangler.toml`) — without them: "ROOM binding missing".
-- **Ephemeral stacks** (v3.12): an `EXPIRES` var (set by deploy.ts
-  --ephemeral) makes the whole worker 403 every request past the date —
-  workshop invite keys die with it.
 
 Free-tier notes: Workers AI = 10k neurons/day **per account** (not per worker);
 KV = 1k writes/day (sync is user-triggered or on open/hide, never on a timer).

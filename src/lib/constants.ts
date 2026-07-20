@@ -1,4 +1,4 @@
-export const APP_VERSION = '3.12.0'
+export const APP_VERSION = '3.13.0'
 
 /** logical card coordinate space (8:5) — strokes are stored in these units */
 export const CARD_W = 800

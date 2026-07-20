@@ -71,19 +71,50 @@ function json(status, obj) {
   });
 }
 
+/* ---------- auth: root SECRET or a stateless temp key ----------
+ * Temp key format (mirror of src/lib/tempkey.ts — keep in sync):
+ *   pt_<base64url(exp)>.<base64url(HMAC_SHA256(root, "pawtemp:" + exp))>
+ * exp is signed, so it can't be extended; rotating SECRET kills every
+ * temp key at once (the MAC no longer verifies). No storage involved.
+ */
+const b64u = (bytes) => {
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+};
+
+export async function authKey(key, secret) { // exported for the unit-test cross-check
+  if (!secret) return true;              // no SECRET configured — open worker
+  if (key === secret) return true;       // root (fast path, no crypto)
+  if (!key || !key.startsWith("pt_")) return false;
+  const dot = key.indexOf(".");
+  if (dot < 0) return false;
+  let exp;
+  try {
+    exp = Number(atob(key.slice(3, dot).replace(/-/g, "+").replace(/_/g, "/")));
+  } catch {
+    return false;
+  }
+  if (!Number.isFinite(exp) || Date.now() > exp) {
+    return false;
+  }
+  const enc = new TextEncoder();
+  const k = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = b64u(new Uint8Array(await crypto.subtle.sign("HMAC", k, enc.encode("pawtemp:" + exp))));
+  return key.slice(dot + 1) === sig;
+}
+
+const badKey = (key) =>
+  json(403, {
+    error: key && key.startsWith("pt_")
+      ? "this invite key has expired — ask the host for a new invite"
+      : "wrong or missing ?key=",
+  });
+
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: CORS });
-    }
-    // Ephemeral workshop stacks (deploy.ts --ephemeral) carry an EXPIRES var:
-    // past it, the whole server politely refuses — the shared key in old
-    // invite links/QRs stops working, which is the point of ephemeral stacks.
-    const expires = Number((env && env.EXPIRES) || 0);
-    if (expires && Date.now() > expires) {
-      return json(403, {
-        error: "this workshop server expired on " + new Date(expires).toISOString().slice(0, 10) + " — ask the host for a new invite",
-      });
     }
     const url = new URL(request.url);
     const secret = (env && env.SECRET) || SECRET;
@@ -93,8 +124,8 @@ export default {
     // state (who's here, which decks are shared) and pushes every change to
     // all connected phones — no polling. Deck payloads stay in KV (share-…).
     if (url.pathname.startsWith("/room/")) {
-      if (secret && url.searchParams.get("key") !== secret) {
-        return json(403, { error: "wrong or missing ?key=" });
+      if (!(await authKey(url.searchParams.get("key"), secret))) {
+        return badKey(url.searchParams.get("key"));
       }
       if (!env.ROOM) {
         return json(500, { error: "ROOM binding missing — add the PawRoom Durable Object (see wrangler.toml)" });
@@ -106,8 +137,8 @@ export default {
 
     /* ---------- Cloud sync: GET/PUT /sync?key=SECRET&id=SYNCID ---------- */
     if (url.pathname === "/sync") {
-      if (secret && url.searchParams.get("key") !== secret) {
-        return json(403, { error: "wrong or missing ?key=" });
+      if (!(await authKey(url.searchParams.get("key"), secret))) {
+        return badKey(url.searchParams.get("key"));
       }
       if (!env.SYNC) {
         return json(500, { error: "SYNC storage missing — create a KV namespace and bind it as SYNC (see wrangler.toml)" });
@@ -142,8 +173,8 @@ export default {
     // (binary, not base64), so the doc stays kilobytes and each image
     // transfers once per device instead of on every sync.
     if (url.pathname === "/img") {
-      if (secret && url.searchParams.get("key") !== secret) {
-        return json(403, { error: "wrong or missing ?key=" });
+      if (!(await authKey(url.searchParams.get("key"), secret))) {
+        return badKey(url.searchParams.get("key"));
       }
       if (!env.SYNC) {
         return json(500, { error: "SYNC storage missing — create a KV namespace and bind it as SYNC (see wrangler.toml)" });
@@ -189,8 +220,8 @@ export default {
     // than 7 days is kept even if unreferenced — its uploader may not have
     // pushed the referencing doc yet.
     if (url.pathname === "/img-gc") {
-      if (secret && url.searchParams.get("key") !== secret) {
-        return json(403, { error: "wrong or missing ?key=" });
+      if (!(await authKey(url.searchParams.get("key"), secret))) {
+        return badKey(url.searchParams.get("key"));
       }
       if (!env.SYNC) return json(500, { error: "SYNC storage missing" });
       const id = (url.searchParams.get("id") || "").trim();
@@ -220,8 +251,8 @@ export default {
     if (request.method !== "POST") {
       return json(200, { ok: true, hint: "POST a PawCards polish request here" });
     }
-    if (secret && url.searchParams.get("key") !== secret) {
-      return json(403, { error: "wrong or missing ?key=" });
+    if (!(await authKey(url.searchParams.get("key"), secret))) {
+      return badKey(url.searchParams.get("key"));
     }
 
     let body;
