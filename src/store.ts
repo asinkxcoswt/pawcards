@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { DECK_COLORS, now, uuid } from './lib/constants'
-import { imgCachePrune, loadDoc, memoryOnly, saveDoc } from './lib/db'
+import { getExampleSeeded, imgCachePrune, loadDoc, memoryOnly, saveDoc, setExampleSeeded } from './lib/db'
 import {
   configureImages,
   inlineCardImages,
@@ -149,6 +149,31 @@ export const useStore = create<Store>((set, get) => {
     }
   }
 
+  /**
+   * Give a new device the bundled starter deck once. "New" = the IndexedDB
+   * flag has never been set (cleared by Erase-all-data, so a wipe re-seeds).
+   * The seed carries frozen old timestamps, so if the user later deletes it
+   * the tombstone always beats a re-seed on another device.
+   */
+  const maybeSeedExample = async () => {
+    if (await getExampleSeeded()) return
+    await setExampleSeeded(true) // mark first — a broken seed must never retry every launch
+    let seed: { deck: Deck; cards: Card[] } | null = null
+    try {
+      seed = (await import('./lib/seed/exampleDeck')).default
+    } catch {
+      return
+    }
+    if (!seed?.deck?.id || !seed.cards?.length) return
+    const { deck, cards } = seed
+    set((s) => {
+      if (s.decks.some((d) => d.id === deck.id)) return {} // already present
+      if (s.tombstones[deck.id]) return {} // the user deleted it before — respect that
+      return { decks: [...s.decks, deck], cards: [...s.cards, ...cards] }
+    })
+    persist(get)
+  }
+
   /** worker-side + local blob GC, at most once a day, after a successful push */
   const maybeGcImages = () => {
     const GC_KEY = 'paw-img-gc-at'
@@ -188,6 +213,7 @@ export const useStore = create<Store>((set, get) => {
           settings: migrateSettings({ ...defaultSettings(), ...doc.settings }, legacy),
         })
       }
+      await maybeSeedExample() // before render (no flash) and before sync (so it pushes)
       set({ loaded: true })
       if (memoryOnly) get().showToast('⚠️ Storage unavailable — changes won’t persist. Export often!')
       if (syncConfigured(get().settings)) void get().syncNow(true)
@@ -431,6 +457,8 @@ export const useStore = create<Store>((set, get) => {
     wipe: () => {
       set({ ...defaultDoc(), screen: 'home', curDeckId: null, curCardId: null, curRoomCode: null, session: null })
       persist(get)
+      // erasing data makes this device "new" again → the starter deck returns
+      void setExampleSeeded(false).then(maybeSeedExample)
     },
 
     /* ---------- rooms ---------- */

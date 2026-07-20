@@ -77,6 +77,33 @@ export async function imgCachePut(id: string, blob: Blob): Promise<void> {
   }
 }
 
+/* ---------- one-shot flags (e.g. "example deck already seeded") ---------- */
+
+const SEEDED_KEY = 'flag:exampleSeeded'
+
+/** true once the example deck has been seeded on this device (survives reloads) */
+export async function getExampleSeeded(): Promise<boolean> {
+  const db = await openDB()
+  if (!db) return false
+  return new Promise((resolve) => {
+    const tx = db.transaction('doc', 'readonly').objectStore('doc').get(SEEDED_KEY)
+    tx.onsuccess = () => resolve(tx.result === true)
+    tx.onerror = () => resolve(false)
+  })
+}
+
+/** set (true) or clear (false — makes this device "new" again) the seeded flag */
+export async function setExampleSeeded(value: boolean): Promise<void> {
+  const db = await openDB()
+  if (!db) return
+  await new Promise<void>((resolve) => {
+    const store = db.transaction('doc', 'readwrite').objectStore('doc')
+    const rq = value ? store.put(true, SEEDED_KEY) : store.delete(SEEDED_KEY)
+    rq.onsuccess = () => resolve()
+    rq.onerror = () => resolve()
+  })
+}
+
 /** drop cached blobs whose ids are not in `keep` (mirrors the server-side GC) */
 export async function imgCachePrune(keep: Set<string>): Promise<void> {
   const db = await openDB()
