@@ -55,9 +55,14 @@ const IS_LCM = MODEL.includes("lcm");
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
+
+const IMG_MAX_BYTES = 2 * 1024 * 1024;      // one card image, post-compression
+const IMG_GC_MIN_AGE_MS = 7 * 24 * 60 * 60 * 1000; // never GC blobs younger than this —
+                                            // another device may have uploaded but not yet
+                                            // pushed the doc that references them
 
 function json(status, obj) {
   return new Response(JSON.stringify(obj), {
@@ -121,6 +126,86 @@ export default {
         return json(200, { ok: true, updatedAt });
       }
       return json(405, { error: "use GET or PUT" });
+    }
+
+    /* ---------- Image blobs: GET/PUT/DELETE /img?key=SECRET&id=SYNCID&img=IMGID ---------- */
+    // Card images are stored OUTSIDE the sync doc, one KV entry per image
+    // (binary, not base64), so the doc stays kilobytes and each image
+    // transfers once per device instead of on every sync.
+    if (url.pathname === "/img") {
+      if (secret && url.searchParams.get("key") !== secret) {
+        return json(403, { error: "wrong or missing ?key=" });
+      }
+      if (!env.SYNC) {
+        return json(500, { error: "SYNC storage missing — create a KV namespace and bind it as SYNC (see wrangler.toml)" });
+      }
+      const id = (url.searchParams.get("id") || "").trim();
+      const imgId = (url.searchParams.get("img") || "").trim();
+      if (id.length < 8) return json(400, { error: "sync id missing or too short" });
+      if (!/^[a-zA-Z0-9-]{8,64}$/.test(imgId)) return json(400, { error: "bad image id" });
+      const kvKey = "img:" + id + ":" + imgId;
+      if (request.method === "GET") {
+        const { value, metadata } = await env.SYNC.getWithMetadata(kvKey, "arrayBuffer");
+        if (!value) return json(404, { error: "no such image" });
+        return new Response(value, {
+          status: 200,
+          headers: {
+            "Content-Type": (metadata && metadata.ct) || "image/webp",
+            // image ids are content-immutable (regenerate = new id) — cache hard
+            "Cache-Control": "public, max-age=31536000, immutable",
+            ...CORS,
+          },
+        });
+      }
+      if (request.method === "PUT") {
+        const body = await request.arrayBuffer();
+        if (!body.byteLength) return json(400, { error: "empty image" });
+        if (body.byteLength > IMG_MAX_BYTES) {
+          return json(413, { error: "image too large (2MB max after compression)" });
+        }
+        const ct = request.headers.get("Content-Type") || "image/webp";
+        await env.SYNC.put(kvKey, body, { metadata: { ct, ts: Date.now() } });
+        return json(200, { ok: true });
+      }
+      if (request.method === "DELETE") {
+        await env.SYNC.delete(kvKey);
+        return json(200, { ok: true });
+      }
+      return json(405, { error: "use GET, PUT or DELETE" });
+    }
+
+    /* ---------- Image GC: POST /img-gc?key=SECRET&id=SYNCID  {keep:[imgId]} ---------- */
+    // Deletes this sync id's blobs that the doc no longer references
+    // (regenerated / ✕-removed / deleted cards). Age guard: a blob younger
+    // than 7 days is kept even if unreferenced — its uploader may not have
+    // pushed the referencing doc yet.
+    if (url.pathname === "/img-gc") {
+      if (secret && url.searchParams.get("key") !== secret) {
+        return json(403, { error: "wrong or missing ?key=" });
+      }
+      if (!env.SYNC) return json(500, { error: "SYNC storage missing" });
+      const id = (url.searchParams.get("id") || "").trim();
+      if (id.length < 8) return json(400, { error: "sync id missing or too short" });
+      if (request.method !== "POST") return json(405, { error: "use POST" });
+      let keep;
+      try { keep = new Set((await request.json()).keep || []); }
+      catch { return json(400, { error: "expected JSON body {keep:[...]}" }); }
+      const prefix = "img:" + id + ":";
+      const cutoff = Date.now() - IMG_GC_MIN_AGE_MS;
+      let removed = 0, kept = 0, cursor;
+      do {
+        const page = await env.SYNC.list({ prefix, cursor });
+        for (const k of page.keys) {
+          const imgId = k.name.slice(prefix.length);
+          const ts = (k.metadata && k.metadata.ts) || 0;
+          if (!keep.has(imgId) && ts && ts < cutoff) {
+            await env.SYNC.delete(k.name);
+            removed++;
+          } else kept++;
+        }
+        cursor = page.list_complete ? undefined : page.cursor;
+      } while (cursor);
+      return json(200, { ok: true, removed, kept });
     }
 
     if (request.method !== "POST") {

@@ -59,14 +59,19 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const doExport = () => {
-    const blob = new Blob([exportJson()], { type: 'application/json' })
+  const doExport = async () => {
+    const { json, missing } = await exportJson().catch(() => ({ json: '', missing: 0 }))
+    if (!json) {
+      showToast('Export failed — try again')
+      return
+    }
+    const blob = new Blob([json], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = 'pawcards-backup-' + new Date().toISOString().slice(0, 10) + '.json'
     a.click()
     setTimeout(() => URL.revokeObjectURL(a.href), 5000)
-    showToast('Backup exported')
+    showToast(missing > 0 ? `Backup exported — ${missing} image(s) couldn't be included (offline?)` : 'Backup exported')
   }
   const doImport = (input: HTMLInputElement) => {
     const f = input.files?.[0]

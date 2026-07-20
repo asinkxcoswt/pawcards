@@ -1,6 +1,14 @@
 import { create } from 'zustand'
 import { DECK_COLORS, now, uuid } from './lib/constants'
-import { loadDoc, memoryOnly, saveDoc } from './lib/db'
+import { imgCachePrune, loadDoc, memoryOnly, saveDoc } from './lib/db'
+import {
+  configureImages,
+  inlineCardImages,
+  pendingUploadCards,
+  referencedImgIds,
+  runImgGc,
+  uploadImage,
+} from './lib/images'
 import { runPolish } from './lib/polish'
 import { defaultDoc, defaultSettings, migrateSettings } from './lib/settings'
 import { applyGrade, dueCards, isDue, unretire } from './lib/srs'
@@ -61,7 +69,8 @@ interface Actions {
 
   // settings / data
   saveSettings: (patch: Partial<Settings>) => void
-  exportJson: () => string
+  /** backup JSON with img refs inlined as data URLs; `missing` counts unresolvable images */
+  exportJson: () => Promise<{ json: string; missing: number }>
   importJson: (json: string) => number
   /** import a friend's shared deck (tagged sharedBy); returns card count */
   importSharedDeck: (share: ShareDoc) => number
@@ -103,6 +112,56 @@ export const useStore = create<Store>((set, get) => {
   const addTombstone = (ids: string[]) => {
     const t = now()
     set((s) => ({ tombstones: { ...s.tombstones, ...Object.fromEntries(ids.map((id) => [id, t])) } }))
+  }
+
+  configureImages(() => get().settings)
+
+  /**
+   * Move inline data-URL images off to the worker's blob store, rewriting
+   * cards to `img:` refs. Covers both fresh generations and the one-time
+   * migration of pre-blob docs. Skips silently when sync isn't configured
+   * (local-only mode keeps data URLs) or on upload failure (retried on the
+   * next sync — the data URL keeps working meanwhile).
+   */
+  let uploadingImages = false
+  const uploadPendingImages = async () => {
+    if (uploadingImages) return
+    const s = get().settings
+    if (!syncConfigured(s)) return
+    uploadingImages = true
+    try {
+      for (;;) {
+        const c = pendingUploadCards(get().cards)[0]
+        if (!c) break
+        const dataUrl = c.polished.front!
+        try {
+          const ref = await uploadImage(s, dataUrl)
+          // swap only if the image wasn't replaced/removed while uploading
+          patchCard(c.id, (cc) =>
+            cc.polished.front === dataUrl ? touch({ ...cc, polished: { ...cc.polished, front: ref } }) : cc,
+          )
+        } catch {
+          break
+        }
+      }
+    } finally {
+      uploadingImages = false
+    }
+  }
+
+  /** worker-side + local blob GC, at most once a day, after a successful push */
+  const maybeGcImages = () => {
+    const GC_KEY = 'paw-img-gc-at'
+    try {
+      const last = Number(localStorage.getItem(GC_KEY) ?? 0)
+      if (now() - last < 24 * 60 * 60 * 1000) return
+      localStorage.setItem(GC_KEY, String(now()))
+    } catch {
+      return
+    }
+    const keep = referencedImgIds(get().cards)
+    void runImgGc(get().settings, keep).catch(() => {})
+    void imgCachePrune(keep)
   }
 
   return {
@@ -196,8 +255,10 @@ export const useStore = create<Store>((set, get) => {
     },
     setBackText: (id, text) => patchCard(id, (c) => touch({ ...c, backText: text })),
     setFront: (id, strokes) => patchCard(id, (c) => touch({ ...c, front: strokes })),
-    setBackground: (id, dataUrl) =>
-      patchCard(id, (c) => touch({ ...c, polished: { ...c.polished, front: dataUrl } })),
+    setBackground: (id, dataUrl) => {
+      patchCard(id, (c) => touch({ ...c, polished: { ...c.polished, front: dataUrl } }))
+      void uploadPendingImages()
+    },
     clearBackground: (id) =>
       patchCard(id, (c) => {
         const polished = { ...c.polished }
@@ -231,6 +292,7 @@ export const useStore = create<Store>((set, get) => {
           const url = await runPolish(get().settings, subject)
           patchCard(id, (cc) => touch({ ...cc, polished: { ...cc.polished, front: url } }))
           get().showToast('✨ Image ready!')
+          void uploadPendingImages()
         } catch (e) {
           get().showToast('Generate failed: ' + (e as Error).message)
         } finally {
@@ -318,9 +380,14 @@ export const useStore = create<Store>((set, get) => {
       set((s) => ({ settings: { ...s.settings, ...patch } }))
       persist(get)
     },
-    exportJson: () => {
+    exportJson: async () => {
       const { decks, cards, tombstones, rooms, settings } = get()
-      return JSON.stringify({ version: 1, decks, cards, tombstones, rooms, settings })
+      // backups must be self-contained — resolve blob refs back to data URLs
+      const inlined = await inlineCardImages(cards)
+      return {
+        json: JSON.stringify({ version: 1, decks, cards: inlined.cards, tombstones, rooms, settings }),
+        missing: inlined.missing,
+      }
     },
     importJson: (json) => {
       const doc = JSON.parse(json) as Doc
@@ -411,6 +478,9 @@ export const useStore = create<Store>((set, get) => {
           const e = await rsp.json().catch(() => ({}) as { error?: string })
           throw new Error(e.error ?? 'HTTP ' + rsp.status)
         }
+        // move inline images to the blob store BEFORE pushing so the doc
+        // stays small; cards whose upload fails push their data URL as-is
+        await uploadPendingImages()
         const { decks, cards, tombstones, rooms } = get()
         const put = await fetch(ep, {
           method: 'PUT',
@@ -423,6 +493,7 @@ export const useStore = create<Store>((set, get) => {
         }
         set((s) => ({ settings: { ...s.settings, lastSyncAt: now() } }))
         persist(get)
+        maybeGcImages()
         if (!auto) get().showToast('☁ Synced')
       } catch (err) {
         if (!auto) get().showToast('Sync failed: ' + (err as Error).message)

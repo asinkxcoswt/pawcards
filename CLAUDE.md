@@ -47,6 +47,15 @@ src/
   lib/srs.ts          SM-2 variant; Easy RETIRES the card (product decision)
   lib/sync.ts         mergeRemote (newest-edit-wins per card + tombstones)
   lib/prompts.ts      describePrompt (SD/Flux) vs instructPrompt (Gemini/OpenAI)
+  lib/images.ts       image blob store (v3.11): polished.front is a dataURL
+                      (local-only / awaiting upload) OR an img:<id> ref to a
+                      KV blob on the sync worker. An upload pass (store.ts
+                      uploadPendingImages: after ✨/📷 and before every sync
+                      push) compresses to WebP/JPEG at 800×500 and rewrites
+                      the card to the ref; drawBg resolves refs (memory →
+                      IndexedDB 'images' store (db v2) → network, 30s retry
+                      backoff). Backups & deck shares INLINE refs back to
+                      data URLs — recipients/other workers can't resolve them
   lib/polish.ts       three providers, txt2img ONLY (img2img was removed — see History)
   lib/canvas.ts       stroke render, bg-image cover draw, Thai-aware canvas text
                       (thumbs/export only), drawFrontText (front caption on canvas)
@@ -132,9 +141,18 @@ Endpoints (all CORS `*`; `?key=SECRET` gates everything):
   unused). **Thai in the prompt is auto-translated** span-by-span via
   `@cf/meta/m2m100-1.2b` so English style words survive.
 - `GET/PUT /sync?key=&id=SYNCID` — whole-doc sync storage in **KV** (binding
-  `SYNC`, 24MB guard). Stored value: `{doc, updatedAt}`. KV holds exactly two
-  kinds of data: personal sync docs (never expire) and deck-share payloads
-  (`share-…`, 60-day `expirationTtl`).
+  `SYNC`, 24MB guard). Stored value: `{doc, updatedAt}`. KV holds three kinds
+  of data: personal sync docs (never expire), deck-share payloads (`share-…`,
+  60-day `expirationTtl`), and image blobs (`img:<syncId>:<imgId>`, below).
+- `GET/PUT/DELETE /img?key=&id=SYNCID&img=IMGID` — card image blobs (v3.11),
+  binary (not base64), 2MB guard, metadata `{ct, ts}`, immutable Cache-Control
+  (regenerate = new id, ids never reused). Keeps the sync doc tiny; each
+  image transfers once per device.
+- `POST /img-gc?key=&id=SYNCID` body `{keep:[imgId]}` — deletes that sync id's
+  blobs not in the keep-list AND older than 7 days (age guard: another
+  device may have uploaded a blob but not yet pushed the doc referencing it).
+  The app calls it at most once/day after a successful push (localStorage
+  `paw-img-gc-at`), passing every ref in the merged doc.
 - `WS /room/<code>?key=&member=&name=&room=` — rooms, via the **PawRoom
   Durable Object** (binding `ROOM`, SQLite-backed, free plan, WebSocket
   hibernation). Presence = open sockets; state (meta + deck pointers) in DO
@@ -151,9 +169,13 @@ Friends get their own Cloudflare account + worker URL rather than a shared one.
 - Identity = **Sync ID** (`paw-xxxx-xxxx-xxxx`), a bearer secret the user copies
   to each device. No accounts (Google-login alternatives were evaluated and
   deliberately rejected — iOS PWA OAuth friction; notes in session).
-- Flow: pull → `mergeRemote` → push. Per-card newest-`updated`-wins; deletions
-  via `tombstones{id:ts}` (pruned >90d — a device offline >90d can resurrect
-  deleted cards). Settings do NOT sync (per-device).
+- Flow: pull → `mergeRemote` → upload pending images (data URL cards → `img:`
+  refs; failures fall back to pushing the data URL inline) → push. Per-card
+  newest-`updated`-wins; deletions via `tombstones{id:ts}` (pruned >90d — a
+  device offline >90d can resurrect deleted cards). Settings do NOT sync
+  (per-device). Since v3.11 images live outside the doc (see lib/images.ts) —
+  this is also what stopped newest-wins from clobbering images: a graded copy
+  still carries the ref string.
 - **Every card mutation must set `updated: now()`** (the `touch` helper in
   store.ts) and **every delete must tombstone** — this discipline is what makes
   sync correct. If you add a mutation, keep it.
@@ -248,8 +270,10 @@ Friends get their own Cloudflare account + worker URL rather than a shared one.
 - Client-side encryption of the sync doc (WebCrypto) — discussed, not built;
   would make the Worker owner a blind host.
 - Search over backText; answer box auto-grow; per-deck style prompts.
-- KV doc size: guard at 24MB; heavy generated-image use could approach it
-  (images are stored as data URLs inside the doc).
+- Image blobs live in KV (1GB free ≈ 5–10k images at ~100–200KB WebP each);
+  if that ever nears full, swap the `/img` storage to R2 (10GB free, needs a
+  billing card) — endpoint shape is identical. Local-only users (no sync
+  configured) still keep data URLs in the doc, capped by the 24MB guard.
 
 ## Commands
 

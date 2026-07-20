@@ -53,7 +53,9 @@ export interface Card {
   /** kept out of every share (deck QR + rooms); still yours to review */
   private?: boolean
   srs: Srs | null
-  /** polished.front = AI-generated (or imported) background image dataURL */
+  /** polished.front = AI-generated (or imported) background image: either an
+   *  inline dataURL (local-only / awaiting upload) or an `img:<id>` ref to a
+   *  blob on the sync worker (lib/images.ts) */
   polished: { front?: string; back?: string }
 }
 

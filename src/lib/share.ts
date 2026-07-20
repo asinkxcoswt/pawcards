@@ -1,3 +1,4 @@
+import { inlineCardImages } from './images'
 import type { Card, Deck } from './types'
 import { syncEndpoint } from './sync'
 
@@ -101,8 +102,14 @@ export async function kvGet(syncUrl: string, id: string): Promise<unknown> {
 
 /** Upload a deck for sharing; returns the QR payload to show. */
 export async function uploadDeckShare(syncUrl: string, by: string, deck: Deck, cards: Card[]): Promise<DeckShareQr> {
+  // recipients are on a DIFFERENT worker — img refs would be dead there,
+  // so shares carry the images inline (share-… entries expire after 60d)
+  const inlined = await inlineCardImages(cards)
+  if (inlined.missing > 0) {
+    throw new Error(`couldn't load ${inlined.missing} card image(s) — check your connection and try again`)
+  }
   const id = newShareId()
-  const doc: ShareDoc = { deck, cards, by, at: Date.now() }
+  const doc: ShareDoc = { deck, cards: inlined.cards, by, at: Date.now() }
   await kvPut(syncUrl, id, doc)
   return { url: syncUrl, id, name: deck.name, by, count: cards.length }
 }

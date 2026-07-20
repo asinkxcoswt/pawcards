@@ -1,4 +1,5 @@
 import { CARD_H, CARD_W } from './constants'
+import { imgUrlSync, isImgRef, loadImg } from './images'
 import type { Card, FrontText, Stroke } from './types'
 
 /** Stroke rendering + card painting. Strokes live in logical 800×500 space. */
@@ -37,7 +38,8 @@ export function renderStrokes(ctx: CanvasRenderingContext2D, strokes: Stroke[], 
 /** image cache for generated backgrounds */
 const imgCache: Record<string, HTMLImageElement> = {}
 
-/** draw a background image with cover fit; returns false and schedules repaint if not loaded yet */
+/** draw a background image with cover fit; returns false and schedules repaint if not loaded yet.
+ *  `url` may be a data URL or an `img:` blob ref (resolved via the image cache). */
 export function drawBg(
   ctx: CanvasRenderingContext2D,
   url: string,
@@ -45,6 +47,18 @@ export function drawBg(
   h: number,
   repaint?: () => void,
 ): boolean {
+  if (isImgRef(url)) {
+    const resolved = imgUrlSync(url)
+    if (!resolved) {
+      if (repaint) {
+        void loadImg(url).then((u) => {
+          if (u) repaint()
+        })
+      }
+      return false
+    }
+    url = resolved
+  }
   let im = imgCache[url]
   if (!im) {
     im = new Image()
@@ -255,7 +269,8 @@ export async function frontToBlob(c: Card): Promise<Blob> {
   const ctx = cv.getContext('2d')!
   ctx.fillStyle = '#fff'
   ctx.fillRect(0, 0, 1024, 640)
-  const bg = c.polished?.front
+  let bg = c.polished?.front
+  if (isImgRef(bg)) bg = (await loadImg(bg)) ?? undefined
   if (bg) {
     try {
       const im = new Image()
