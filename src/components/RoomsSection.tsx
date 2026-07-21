@@ -125,23 +125,26 @@ function CreateRoomModal({ onClose }: { onClose: () => void }) {
           data-testid="room-exp-days"
         />
 
-        <label className="mt-3.5 flex cursor-pointer items-start gap-2.5 rounded-xl border border-line bg-paper p-3">
-          <input
-            type="checkbox"
-            className="mt-0.5 h-4 w-4 shrink-0 accent-accent"
-            checked={shareServer}
-            onChange={(e) => setShareServer(e.target.checked)}
+        <div className="mt-3.5 rounded-xl border border-line bg-paper p-3">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={shareServer}
             data-testid="room-share-server"
-          />
-          <span className="text-[13px] leading-snug">
-            <b className="font-semibold">Let guests make AI images on my account</b>
-            <span className="mt-0.5 block text-muted">
-              Off (recommended): guests can join and review the decks you share, but bring their own setup. On:
-              anyone with the invite can also use ✨ through your account — handy for a class, but it spends your
-              account's daily limits, so only turn it on for people you trust.
+            onClick={() => setShareServer((v) => !v)}
+            className="flex w-full items-center gap-3 text-left"
+          >
+            <span className="flex-1 text-[13px] font-semibold">Let guests make AI images on my account</span>
+            <span className={'relative h-6 w-10 shrink-0 rounded-full transition-colors ' + (shareServer ? 'bg-accent' : 'bg-line')}>
+              <span className={'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ' + (shareServer ? 'left-[18px]' : 'left-0.5')} />
             </span>
-          </span>
-        </label>
+          </button>
+          <p className="mt-2 text-[12.5px] leading-snug text-muted">
+            {shareServer
+              ? 'On: guests can also make AI images through your account. This uses your account’s daily limits, so keep it to people you trust.'
+              : 'Off: guests can join and review the decks you share, but bring their own setup — they can’t make AI images through your account.'}
+          </p>
+        </div>
 
         <div className="mt-3.5 flex gap-2.5">
           <button className="btn btn-primary" disabled={!name.trim() || !nickname.trim()} data-testid="room-create-go" onClick={create}>
