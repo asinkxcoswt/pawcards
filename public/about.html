@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>About PawCards — draw, remember, share with friends</title>
+  <meta name="description" content="PawCards is a drawing-first flashcard app that's yours: works offline, no account, your cards stay on your device. Made for learning and sharing with friends." />
+  <style>
+    :root {
+      --paper: #faf7f2;
+      --panel: #ffffff;
+      --ink: #22211f;
+      --muted: #7a756c;
+      --line: #e8e3d8;
+      --accent: #e0663c;
+      --accent-soft: #fbeee8;
+      --good: #3f8f5f;
+      --font: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", system-ui, sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --paper: #1b1a18; --panel: #262420; --ink: #f0ece4; --muted: #a39d91;
+        --line: #38352f; --accent: #e8794f; --accent-soft: #33241d;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; background: var(--paper); color: var(--ink);
+      font-family: var(--font); line-height: 1.62; font-size: 17px;
+    }
+    .wrap { max-width: 680px; margin: 0 auto; padding: 40px 22px 80px; }
+    a { color: var(--accent); }
+    h1 { font-size: clamp(28px, 6vw, 38px); line-height: 1.15; margin: 18px 0 6px; letter-spacing: -.01em; }
+    h2 { font-size: 21px; margin: 40px 0 8px; letter-spacing: -.01em; }
+    p { margin: 12px 0; }
+    .lede { font-size: 19px; color: var(--muted); margin-top: 4px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand svg { width: 44px; height: 44px; }
+    .brand b { font-size: 26px; font-weight: 800; }
+    .brand b span { color: var(--accent); }
+    .tag { font-size: 13px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+    .card {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+      padding: 18px 20px; margin: 16px 0;
+    }
+    .steps { display: grid; gap: 12px; margin: 16px 0; }
+    .step { display: flex; gap: 14px; align-items: flex-start; }
+    .step .n {
+      flex: none; width: 30px; height: 30px; border-radius: 50%;
+      background: var(--accent-soft); color: var(--accent);
+      display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px;
+    }
+    .step .t { font-size: 15.5px; }
+    .step .t b { display: block; }
+    ul.promises { list-style: none; padding: 0; margin: 14px 0; display: grid; gap: 10px; }
+    ul.promises li { display: flex; gap: 11px; align-items: flex-start; font-size: 15.5px; }
+    ul.promises li .k { color: var(--good); font-weight: 800; flex: none; }
+    .pill { display: inline-block; background: var(--accent-soft); color: var(--accent);
+      font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; letter-spacing: .02em; }
+    details { border-top: 1px solid var(--line); padding: 4px 0; }
+    details summary { cursor: pointer; font-weight: 650; padding: 12px 0; list-style: none; font-size: 16px; }
+    details summary::-webkit-details-marker { display: none; }
+    details summary::after { content: "+"; float: right; color: var(--muted); font-weight: 400; }
+    details[open] summary::after { content: "–"; }
+    details p { margin: 0 0 14px; color: var(--ink); font-size: 15.5px; }
+    .muted { color: var(--muted); }
+    footer { margin-top: 52px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+    .backlink { display: inline-block; margin-bottom: 8px; font-weight: 650; font-size: 14px; }
+    hr { border: 0; border-top: 1px solid var(--line); margin: 40px 0; }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <a class="backlink" href="/">← Back to PawCards</a>
+
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <ellipse cx="16" cy="21.5" rx="7.5" ry="6" fill="var(--accent)" />
+        <circle cx="8.5" cy="15" r="2.7" fill="var(--accent)" />
+        <circle cx="13.5" cy="10.5" r="2.9" fill="var(--accent)" />
+        <circle cx="18.5" cy="10.5" r="2.9" fill="var(--accent)" />
+        <circle cx="23.5" cy="15" r="2.7" fill="var(--accent)" />
+      </svg>
+      <div>
+        <b>Paw<span>Cards</span></b>
+        <div class="tag">Draw &amp; share flashcards with friends</div>
+      </div>
+    </div>
+
+    <h1>Little flashcards, made to share.</h1>
+    <p class="lede">
+      PawCards is a drawing-first flashcard app built for learning — and for having fun with friends. It's
+      <b>yours</b>: it works offline, needs no account, and your cards live on your own device.
+    </p>
+
+    <h2>Draw it. Remember it. Share it.</h2>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><div class="t"><b>Write the answer.</b><span class="muted">Type the thing you want to remember.</span></div></div>
+      <div class="step"><div class="n">2</div><div class="t"><b>Make the front.</b><span class="muted">Tap ✨ to turn your answer into a picture, or draw your own with pen &amp; highlighter.</span></div></div>
+      <div class="step"><div class="n">3</div><div class="t"><b>Review &amp; share.</b><span class="muted">Practice with spaced repetition, and share decks or study together in a room with friends.</span></div></div>
+    </div>
+
+    <h2>Your cards live on your device</h2>
+    <p>
+      Everything you make is stored right on your phone — not on our servers. There's <b>no sign-up, no email, no
+      account</b>, and we don't track you or show ads. Open the app on an airplane and it just works.
+    </p>
+    <div class="card">
+      <span class="pill">Good to know</span>
+      <p style="margin-bottom:0">
+        <b>You never have to connect anything.</b> If you use PawCards on one device and don't need to share, you can
+        stay completely local — forever. Your cards are yours, and you can export a backup file anytime.
+      </p>
+    </div>
+
+    <h2>When you might want to connect a server</h2>
+    <p>PawCards can optionally sync through a server — but only when <em>you</em> want one of these:</p>
+    <ul class="promises">
+      <li><span class="k">→</span><span><b>More than one device.</b> Keep your phone and tablet in sync.</span></li>
+      <li><span class="k">→</span><span><b>A safety net.</b> Back up your cards so a lost phone doesn't mean lost decks.</span></li>
+      <li><span class="k">→</span><span><b>Sharing with friends.</b> Send a deck, or run a room/workshop where everyone reviews together.</span></li>
+      <li><span class="k">→</span><span><b>AI images.</b> The ✨ button that draws your card fronts runs on a small server.</span></li>
+    </ul>
+    <p>
+      And here's the important part: <b>the server is yours, not ours.</b> Sync runs through your own Cloudflare
+      worker (or one a friend shares for a workshop). It's a courier that moves your cards between your devices — it
+      isn't an account, and we never see your content. No server, no problem: the app is fully usable without one.
+    </p>
+
+    <h2>Made for friends 🐾</h2>
+    <p>
+      Learning sticks better together. Share a deck with a tap, join a <b>room</b> to swap decks with a study group,
+      or run a live <b>group review</b> where everyone follows along. When you invite people, you're in control of
+      exactly what you share — down to whether they can use your server at all.
+    </p>
+
+    <h2>Our promises</h2>
+    <ul class="promises">
+      <li><span class="k">✓</span><span>No accounts, no emails, no passwords.</span></li>
+      <li><span class="k">✓</span><span>No ads, no trackers, no selling your data.</span></li>
+      <li><span class="k">✓</span><span>Your data is yours — export it anytime, delete it anytime.</span></li>
+      <li><span class="k">✓</span><span>Local-first: the app keeps working even if we disappear.</span></li>
+      <li><span class="k">✓</span><span>Honest about cost: AI image generation uses a server's quota, so heavy use may need your own.</span></li>
+    </ul>
+
+    <hr />
+
+    <h2>Questions</h2>
+    <details><summary>Is it free?</summary><p>The app is free and works fully offline with no account. AI image generation runs on a server (yours or a shared one), which has daily limits — that's the only piece with a real-world cost.</p></details>
+    <details><summary>Do I need an account?</summary><p>No. There are no accounts at all. If you sync across devices, your identity is a private "Sync ID" you copy between them — like a key you keep, not a login you register.</p></details>
+    <details><summary>Where is my data?</summary><p>On your device, in the app's local storage. If you turn on sync, a copy also lives on the server you chose (your own Cloudflare worker). We never store or see your cards.</p></details>
+    <details><summary>Can I use it without the internet?</summary><p>Yes — creating cards, drawing, and reviewing all work offline. You only need a connection to generate AI images or to sync/share.</p></details>
+    <details><summary>What if I lose my phone?</summary><p>If you never synced, cards live only on that device — so export a backup now and then. If you did sync, just enter the same Sync ID on a new device and pull them back.</p></details>
+    <details><summary>I'm technical — can I run my own?</summary><p>Yes. PawCards is designed for you to bring your own Cloudflare worker, so you host everything yourself and depend on no one. See the setup guide from the app.</p></details>
+
+    <footer>
+      Made with care by <a href="mailto:dev@littlepawcraft.com">littlepawcraft</a>. Questions or ideas? We'd love to
+      hear from you.
+      <br /><br />
+      <a class="backlink" href="/">← Back to PawCards</a>
+    </footer>
+  </main>
+</body>
+</html>

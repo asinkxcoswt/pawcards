@@ -18,11 +18,27 @@ export default function Home() {
   const [showNewDeck, setShowNewDeck] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const openAbout = () => window.open('/about.html', '_blank', 'noopener,noreferrer')
 
   return (
     <section className="flex h-dvh flex-col overflow-hidden">
       <header className="flex items-center gap-2.5 px-4 pb-2.5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}>
-        <Logo className="h-7 flex-1" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1">
+            <Logo className="h-7" />
+            <button
+              className="p-0.5 text-muted transition hover:text-ink"
+              title="About PawCards"
+              data-testid="about-btn"
+              onClick={openAbout}
+            >
+              <Icon name="info" size={15} />
+            </button>
+          </div>
+          <button className="mt-px block text-left text-[11px] font-medium text-muted transition hover:text-ink" data-testid="tagline" onClick={openAbout}>
+            Draw &amp; share flashcards with friends
+          </button>
+        </div>
         <button className="iconbtn" title="Scan a shared deck QR" data-testid="import-share" onClick={() => setShowImport(true)}>
           <Icon name="qr" />
         </button>
