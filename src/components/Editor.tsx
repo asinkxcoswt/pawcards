@@ -7,6 +7,7 @@ import type { Stroke } from '../lib/types'
 import ConfirmButton from './ConfirmButton'
 import Icon from './Icon'
 import FrontTextLayer, { defaultFrontText } from './FrontTextLayer'
+import CardPreviewModal from './CardPreviewModal'
 
 type ToolType = 'pen' | 'hl' | 'eraser'
 
@@ -30,6 +31,7 @@ export default function Editor() {
   const [genMenu, setGenMenu] = useState(false)
   const [customOpen, setCustomOpen] = useState(false)
   const [customPrompt, setCustomPrompt] = useState('')
+  const [previewing, setPreviewing] = useState(false)
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const groupRef = useRef<HTMLDivElement>(null)
@@ -282,6 +284,9 @@ export default function Editor() {
         <button className="iconbtn" data-testid="back" title="Back" onClick={closeEditor}>
           <Icon name="back" size={22} />
         </button>
+        <button className="iconbtn" data-testid="preview-card-btn" title="Preview card" onClick={() => setPreviewing(true)}>
+          <Icon name="reveal" size={20} />
+        </button>
         <div className="flex-1" />
         <div className="relative inline-flex">
           <button className="btn btn-primary rounded-r-none" data-testid="generate" onClick={() => generate()}>
@@ -465,6 +470,8 @@ export default function Editor() {
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => importImage(e.target)} />
         </div>
       </div>
+
+      {previewing && <CardPreviewModal card={card} onClose={() => setPreviewing(false)} />}
 
       {customOpen && (
         <div

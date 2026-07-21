@@ -66,3 +66,26 @@ test('data persists across reload (IndexedDB)', async ({ page }) => {
   expect(await store<number>(page, 's => s.decks.length')).toBe(1)
   expect(await store<string>(page, 's => s.cards[0].backText')).toBe('the answer')
 })
+
+test('preview a card while editing: front, tap to flip to the answer', async ({ page }) => {
+  await resetApp(page)
+  await createDeckAndCard(page, 'Bio', 'the powerhouse answer')
+
+  // open the preview from the editor header
+  await page.getByTestId('preview-card-btn').click()
+  await expect(page.getByTestId('card-preview')).toBeVisible()
+  // starts on the front — the answer is hidden until flipped
+  await expect(page.getByTestId('preview-answer')).toHaveCount(0)
+
+  // tap the card → flips to the answer (real DOM text)
+  await page.getByTestId('preview-card').click()
+  await expect(page.getByTestId('preview-answer')).toContainText('the powerhouse answer')
+  // tap again → back to the front
+  await page.getByTestId('preview-card').click()
+  await expect(page.getByTestId('preview-answer')).toHaveCount(0)
+
+  // close returns to the editor, still on the same card
+  await page.getByTestId('preview-close').click()
+  await expect(page.getByTestId('card-preview')).toHaveCount(0)
+  await expect(page.getByPlaceholder(/key takeaway/)).toBeVisible()
+})
