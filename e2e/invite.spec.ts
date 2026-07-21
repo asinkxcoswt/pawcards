@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { inviteLink } from '../src/lib/invite'
+import { mintRoomKey } from '../src/lib/tempkey'
 import { store } from './helpers'
 
 /**
@@ -97,6 +98,30 @@ test('configured app: link adds the room but never touches main settings', async
   // Join now opens the room screen
   await page.getByTestId('invite-join').click()
   expect(await store<string>(page, 's => s.screen')).toBe('room')
+})
+
+test('room-only invite (pr_ key): fresh user joins, but settings stay empty', async ({ page }) => {
+  // host who did NOT enable "let guests use my server" → the invite carries a
+  // room-only key; the guest joins the room but never adopts the host's server
+  const exp = Date.now() + 30 * 24 * 60 * 60 * 1000
+  const roomKey = await mintRoomKey('workshop-key', exp)
+  const roomOnly = {
+    url: 'https://pawshop.test.workers.dev/?key=' + roomKey,
+    code: 'room-e2e-ro01',
+    name: 'Reading Club',
+    by: 'Nong',
+    exp,
+  }
+  await openInvite(page, roomOnly)
+
+  await expect(page.getByTestId('invite-popup')).toBeVisible()
+  // the room is joined (pill on Home)…
+  expect(await store<number>(page, 's => s.rooms.length')).toBe(1)
+  expect(await store<string>(page, "s => s.rooms[0].name")).toBe('Reading Club')
+  // …but the host's server was NOT adopted, and onboarding is not marked done
+  expect(await store<string>(page, 's => s.settings.syncUrl')).toBe('')
+  expect(await store<string>(page, 's => s.settings.apiKey')).toBe('')
+  expect(await store<boolean>(page, 's => s.settings.onboarded')).toBe(false)
 })
 
 test('expired invite: friendly popup, nothing applied', async ({ page }) => {

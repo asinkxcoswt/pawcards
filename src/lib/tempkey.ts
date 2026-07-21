@@ -17,6 +17,7 @@
 
 export const TEMP_KEY_PREFIX = 'pt_'
 export const SHARE_KEY_PREFIX = 'ps_'
+export const ROOM_KEY_PREFIX = 'pr_'
 
 const b64u = (bytes: Uint8Array): string => {
   let bin = ''
@@ -39,6 +40,17 @@ export function isTempKey(key: string): boolean {
 
 export function isShareKey(key: string): boolean {
   return key.startsWith(SHARE_KEY_PREFIX)
+}
+
+export function isRoomKey(key: string): boolean {
+  return key.startsWith(ROOM_KEY_PREFIX)
+}
+
+/** does this url's key grant full server use (generation + personal sync)?
+ *  root and pt_ do; a room key (pr_) or share key (ps_) do NOT. Drives whether
+ *  a fresh app adopts the invite's worker as its own settings. */
+export function keyGrantsServer(key: string): boolean {
+  return !!key && !isRoomKey(key) && !isShareKey(key)
 }
 
 /** expiry (ms epoch) encoded in a temp key, or null if it isn't one / is damaged */
@@ -120,5 +132,41 @@ export async function urlWithShareKey(url: string, shareId: string, exp: number)
   const key = u.searchParams.get('key') ?? ''
   if (!key || isTempKey(key) || isShareKey(key)) return url
   u.searchParams.set('key', await mintShareKey(key, shareId, exp))
+  return u.toString()
+}
+
+/* ---------- room keys (join a room + read/share its decks — NOT generation) ---------- */
+
+/**
+ * A capability scoped to ROOM use only: it authorizes connecting to a room
+ * (WS /room/<code>) and reading/writing shared decks (share-* KV ids), but NOT
+ * image generation, your personal sync docs, or image blobs. Given to guests
+ * when the host does NOT want them using the server to generate. Expiring +
+ * needs the ROOT to mint; rotating the root kills it. Worker: authRoomKey.
+ */
+export async function mintRoomKey(rootKey: string, exp: number): Promise<string> {
+  return ROOM_KEY_PREFIX + b64u(new TextEncoder().encode(String(exp))) + '.' + (await sign(rootKey, 'pawroom:' + exp))
+}
+
+export async function verifyRoomKey(key: string, rootKey: string, t = Date.now()): Promise<boolean> {
+  if (!isRoomKey(key)) return false
+  const dot = key.indexOf('.')
+  if (dot < 0) return false
+  let exp: number
+  try {
+    exp = Number(atob(key.slice(ROOM_KEY_PREFIX.length, dot).replace(/-/g, '+').replace(/_/g, '/')))
+  } catch {
+    return false
+  }
+  if (!Number.isFinite(exp) || t > exp) return false
+  return key === (await mintRoomKey(rootKey, exp))
+}
+
+/** rewrite a worker URL's ?key= to a room-only token; no-op if the key can't mint */
+export async function urlWithRoomKey(url: string, exp: number): Promise<string> {
+  const u = new URL(url)
+  const key = u.searchParams.get('key') ?? ''
+  if (!key || isTempKey(key) || isShareKey(key) || isRoomKey(key)) return url
+  u.searchParams.set('key', await mintRoomKey(key, exp))
   return u.toString()
 }

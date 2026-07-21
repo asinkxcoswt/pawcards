@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
-import { inviteConfig, type InvitePayload } from '../lib/invite'
+import { inviteConfig, inviteGrantsServer, type InvitePayload } from '../lib/invite'
 import { expiresLabel, newMemberId } from '../lib/room'
 import { newSyncId } from '../lib/settings'
 import { now } from '../lib/constants'
@@ -42,7 +42,9 @@ export default function InviteGate({ invite }: { invite: InvitePayload }) {
     }
     const s = useStore.getState().settings
     const fresh = !s.syncUrl.trim() && !s.apiKey.trim()
-    if (fresh) {
+    // adopt the invite's worker as our settings ONLY when it grants server use.
+    // A room-only invite (pr_ key) never configures the guest's app.
+    if (fresh && inviteGrantsServer(invite.url)) {
       saveSettings({
         ...inviteConfig(invite),
         syncId: s.syncId.trim() || newSyncId(),

@@ -106,6 +106,9 @@ export interface RoomRef {
   name: string
   /** host display name (from the invite; shown in join prompts) */
   by?: string
+  /** host let guests use the server (generation/sync)? invites then carry a full
+   *  temp key; default/undefined = room-only key (guests can't use the server) */
+  shareServer?: boolean
   /** ms epoch — hard expiry of the room (or its workshop server); expired rooms hide */
   expiresAt?: number
   /** this user's member entry id in the room (stable across rejoins) */

@@ -3,7 +3,7 @@ import QRCode from 'qrcode'
 import { useStore } from '../store'
 import { expiresLabel, fetchRoomDeck, ROOM_PROTO, shareDeckToRoom, unshareDeckFromRoom, useRoom, type RoomDeckMeta } from '../lib/room'
 import { encodeInvite, inviteLink, type InvitePayload } from '../lib/invite'
-import { urlWithTempKey } from '../lib/tempkey'
+import { urlWithRoomKey, urlWithTempKey } from '../lib/tempkey'
 import { shareableCards, type ShareDoc } from '../lib/share'
 import ConfirmButton from './ConfirmButton'
 import QrShareButton from './QrShareButton'
@@ -278,6 +278,7 @@ export default function RoomView() {
             by: ref.by || settings.nickname || undefined,
             exp: ref.expiresAt,
           }}
+          shareServer={!!ref.shareServer}
           onClose={() => setInvite(false)}
         />
       )}
@@ -379,7 +380,7 @@ export default function RoomView() {
  *  holds a temp key reshares it as-is (only root holders can mint). */
 const INVITE_DEFAULT_MS = 60 * 24 * 60 * 60 * 1000
 
-function InviteModal({ payload, onClose }: { payload: InvitePayload; onClose: () => void }) {
+function InviteModal({ payload, shareServer, onClose }: { payload: InvitePayload; shareServer: boolean; onClose: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { showToast } = useStore.getState()
   const [error, setError] = useState('')
@@ -389,7 +390,10 @@ function InviteModal({ payload, onClose }: { payload: InvitePayload; onClose: ()
   useEffect(() => {
     let gone = false
     const exp = payload.exp ?? Date.now() + INVITE_DEFAULT_MS
-    urlWithTempKey(payload.url, exp)
+    // shareServer → full key (guests can generate/sync on the host's server);
+    // otherwise a room-only key that just lets them join and swap decks
+    const mint = shareServer ? urlWithTempKey : urlWithRoomKey
+    mint(payload.url, exp)
       .then((url) => {
         if (!gone) setInv({ ...payload, url, exp })
       })
@@ -401,7 +405,7 @@ function InviteModal({ payload, onClose }: { payload: InvitePayload; onClose: ()
     }
     // payload is built fresh by the caller each open — key on its stable parts
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [payload.url, payload.code, payload.name, payload.by, payload.exp])
+  }, [payload.url, payload.code, payload.name, payload.by, payload.exp, shareServer])
 
   useEffect(() => {
     if (!inv || !canvasRef.current) return
@@ -440,8 +444,9 @@ function InviteModal({ payload, onClose }: { payload: InvitePayload; onClose: ()
           <Icon name="qr" size={17} /> Invite to “{name}”
         </h2>
         <p className="hint mb-3.5">
-          Send friends the link, or have them scan this code in PawCards (Rooms → Join). New friends get set up
-          automatically.{inviteDays !== null ? (inviteDays <= 0 ? ' Expires today.' : ` Expires in ${inviteDays} day${inviteDays === 1 ? '' : 's'}.`) : ''}
+          Send friends the link, or have them scan this code in PawCards (Rooms → Join).{' '}
+          {shareServer ? 'Guests can also make AI images on your account.' : 'Guests join and swap decks with their own setup.'}
+          {inviteDays !== null ? (inviteDays <= 0 ? ' Expires today.' : ` Expires in ${inviteDays} day${inviteDays === 1 ? '' : 's'}.`) : ''}
         </p>
         <div className="flex flex-col items-center">
           {!inv && !error && <p className="hint py-10">Preparing invite…</p>}

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../store'
 import { syncConfigured } from '../lib/sync'
 import { expiresLabel, newMemberId, newRoomCode, roomExpired } from '../lib/room'
-import { inviteConfig, parseInvite, type InvitePayload } from '../lib/invite'
+import { inviteConfig, inviteGrantsServer, parseInvite, type InvitePayload } from '../lib/invite'
 import { newSyncId } from '../lib/settings'
 import { now } from '../lib/constants'
 import QrScanner from './QrScanner'
@@ -71,6 +71,7 @@ function CreateRoomModal({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('')
   const [nickname, setNickname] = useState(settings.nickname)
   const [expDays, setExpDays] = useState('')
+  const [shareServer, setShareServer] = useState(false)
 
   const create = () => {
     const roomName = name.trim()
@@ -88,6 +89,7 @@ function CreateRoomModal({ onClose }: { onClose: () => void }) {
       url: settings.syncUrl,
       name: roomName,
       by,
+      ...(shareServer ? { shareServer: true } : {}),
       ...(expDays.trim() ? { expiresAt: now() + days * 24 * 60 * 60 * 1000 } : {}),
       memberId: newMemberId(),
       joinedAt: now(),
@@ -122,6 +124,25 @@ function CreateRoomModal({ onClose }: { onClose: () => void }) {
           onChange={(e) => setExpDays(e.target.value)}
           data-testid="room-exp-days"
         />
+
+        <label className="mt-3.5 flex cursor-pointer items-start gap-2.5 rounded-xl border border-line bg-paper p-3">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 shrink-0 accent-accent"
+            checked={shareServer}
+            onChange={(e) => setShareServer(e.target.checked)}
+            data-testid="room-share-server"
+          />
+          <span className="text-[13px] leading-snug">
+            <b className="font-semibold">Let guests make AI images on my account</b>
+            <span className="mt-0.5 block text-muted">
+              Off (recommended): guests can join and review the decks you share, but bring their own setup. On:
+              anyone with the invite can also use ✨ through your account — handy for a class, but it spends your
+              account's daily limits, so only turn it on for people you trust.
+            </span>
+          </span>
+        </label>
+
         <div className="mt-3.5 flex gap-2.5">
           <button className="btn btn-primary" disabled={!name.trim() || !nickname.trim()} data-testid="room-create-go" onClick={create}>
             <Icon name="room" size={16} /> Create room
@@ -161,10 +182,10 @@ function JoinRoomModal({ onClose }: { onClose: () => void }) {
     const by = nickname.trim()
     if (!by) return
     saveSettings({ nickname: by })
-    // a fresh app (no server configured) adopts the room's server as its main
-    // settings — this is the QR flavour of the invite-link onboarding
+    // a fresh app adopts the room's server as its main settings ONLY when the
+    // invite grants server use (full key). A room-only invite (pr_) just joins.
     const s = useStore.getState().settings
-    if (!s.syncUrl.trim() && !s.apiKey.trim()) {
+    if (!s.syncUrl.trim() && !s.apiKey.trim() && inviteGrantsServer(qr.url)) {
       saveSettings({ ...inviteConfig(qr), syncId: s.syncId.trim() || newSyncId(), onboarded: true })
       showToast('☁ Set up with the room’s server — welcome! 🐾')
     }

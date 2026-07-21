@@ -298,11 +298,11 @@ test('room: live create, share, join, import, leave', async ({ browser }) => {
   await A.getByTestId('room-invite').click()
   const invite = parseInvite(await decodeCanvas(A, 'room-qr-canvas'))
   expect(invite.name).toBe('Thai Cooking')
-  // v3.13: the invite carries a signed TEMP key on the same worker — the
-  // host's root key ("pw") must never appear in a QR
+  // the host's root key ("pw") must never appear in a QR. A default room (the
+  // "let guests use my server" toggle off) mints a ROOM-ONLY key (pr_)
   const inviteUrl = new URL(invite.url)
   expect(inviteUrl.origin).toBe(WORKER)
-  expect(inviteUrl.searchParams.get('key')).toMatch(/^pt_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/)
+  expect(inviteUrl.searchParams.get('key')).toMatch(/^pr_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/)
   expect(invite.url).not.toContain('key=pw')
   await A.getByText('Close').click()
 

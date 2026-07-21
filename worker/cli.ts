@@ -7,8 +7,12 @@
  *
  *   bun worker/cli.ts <profile> deploy [--kv NAME]       create/update the stack
  *   bun worker/cli.ts <profile> rotate-key               new SECRET (old keys + temp keys die)
- *   bun worker/cli.ts <profile> create-room --exp 30d [--name "My Room"] [--host-name John]
+ *   bun worker/cli.ts <profile> create-room --exp 30d [--name "My Room"] [--host-name John] [--share-server]
  *   bun worker/cli.ts <profile> destroy                  delete worker (+ profile-created KV)
+ *
+ * create-room mints a ROOM-ONLY key by default (guests join + swap decks, but
+ * cannot generate on your server). Add --share-server to mint a full temp key
+ * so guests can also use ✨ on your server (spends your account's quota).
  *
  * Profiles live in worker/stacks/<profile>.json ({worker, kv, app?}) — `--kv`
  * is only needed the first time (find-or-create by TITLE, or a 32-hex id to
@@ -29,7 +33,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { inviteLink, type InvitePayload } from '../src/lib/invite'
 import { newRoomCode } from '../src/lib/room'
-import { mintTempKey } from '../src/lib/tempkey'
+import { mintRoomKey, mintTempKey } from '../src/lib/tempkey'
 import { settingsQrSvg } from './settings-qr'
 
 const workerDir = dirname(fileURLToPath(import.meta.url))
@@ -161,8 +165,16 @@ function checkLogin(): void {
 }
 
 /* ---------- shared hand-over: settings QR + invite link ---------- */
-async function handOver(base: string, key: string, note: string, room?: { code: string; name: string; by?: string; exp: number }) {
-  const endpoint = `${base}/?key=${room ? await mintTempKey(key, room.exp) : key}`
+async function handOver(
+  base: string,
+  key: string,
+  note: string,
+  room?: { code: string; name: string; by?: string; exp: number; shareServer?: boolean },
+) {
+  // room invite: full temp key only when the host opts to share the server;
+  // otherwise a room-only key (guests join + swap decks, no generation/sync)
+  const roomKey = room ? (room.shareServer ? await mintTempKey(key, room.exp) : await mintRoomKey(key, room.exp)) : key
+  const endpoint = `${base}/?key=${roomKey}`
   const invite: InvitePayload = room
     ? { url: endpoint, code: room.code, name: room.name, ...(room.by ? { by: room.by } : {}), exp: room.exp }
     : { url: endpoint }
@@ -180,10 +192,13 @@ async function handOver(base: string, key: string, note: string, room?: { code: 
   )
   if (room) {
     const app = profile.app ?? DEFAULT_APP
-    console.log(`\n   🏫 Room "${room.name}" (${room.code}) — the invite carries a TEMP key, not your root key.`)
+    console.log(
+      `\n   🏫 Room "${room.name}" (${room.code}) — the invite carries a ${room.shareServer ? 'full temp key: guests can GENERATE on this server' : 'room-only key: guests join + swap decks, but CANNOT generate on this server'}.`,
+    )
     console.log(`\n   🔗 Ready-to-share link (paste into Line — opens the real browser):\n`)
     console.log(`   ${inviteLink(app, invite)}\n`)
     console.log(`   ⏳ Invite (key + room) stops working ${new Date(room.exp).toISOString().slice(0, 10)}.`)
+    if (!room.shareServer) console.log('   ↷ add --share-server to let guests use this server for AI generation.')
     console.log('   ⚠ JOIN YOUR OWN ROOM FIRST — the first person to connect becomes the host.')
   } else {
     console.log(`\n   ${endpoint}\n`)
@@ -303,6 +318,7 @@ if (command === 'create-room') {
     name: flagValue('--name') ?? profileName,
     by: flagValue('--host-name'),
     exp: Date.now() + dur,
+    shareServer: args.includes('--share-server'),
   }
   console.log(`\n🏫 Creating room invite on "${profile.worker}" (no deploy needed — the key is signed locally)…`)
   await handOver(sf.url, sf.key, 'room invite', room)

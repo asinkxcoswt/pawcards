@@ -165,11 +165,13 @@ bun worker/cli.ts <profile> deploy [--kv NAME]  # create/update a stack; --kv on
 #   and opens the settings QR card.
 bun worker/cli.ts <profile> rotate-key       # new SECRET — kills every old key
 #   AND every outstanding temp/room invite at once; opens a fresh settings QR
-bun worker/cli.ts <profile> create-room --exp 30d [--name "My Room"] [--host-name John]
-#   → NO deploy/network needed: signs a STATELESS TEMP KEY locally from the
-#     saved root (see lib/tempkey.ts), mints a room code, prints the
-#     ready-to-share #ws= link + opens the invite QR card. The invite carries
-#     ONLY the temp key — it dies at --exp. JOIN YOUR OWN ROOM FIRST — the
+bun worker/cli.ts <profile> create-room --exp 30d [--name "My Room"] [--host-name John] [--share-server]
+#   → NO deploy/network needed: signs a stateless key locally from the saved
+#     root (see lib/tempkey.ts), mints a room code, prints the ready-to-share
+#     #ws= link + opens the invite QR card. DEFAULT = a room-only pr_ key
+#     (guests join + swap decks, cannot generate on your server); --share-server
+#     mints a full pt_ key so guests can also generate. Key dies at --exp.
+#     JOIN YOUR OWN ROOM FIRST — the
 #     first connector becomes host. This replaced the v3.12 --ephemeral/EXPIRES
 #     whole-server expiry (never used in a real workshop, removed v3.13).
 bun worker/cli.ts <profile> destroy          # deletes worker + profile-created KV
@@ -203,7 +205,15 @@ KV involved. Room invites (in-app + CLI) always carry a temp key — the root
 key never enters a QR/link. A THIRD, tighter token gates deck shares: a
 SCOPED share key `ps_<b64u(exp)>.<b64u(HMAC_SHA256(root,"pawshare:"+id+":"+exp))>`
 (v3.15, authShareKey) that only authorizes GET /sync for its one bound id —
-so a deck-share recipient reads just that deck, never your key or other data):
+so a deck-share recipient reads just that deck, never your key or other data.
+A FOURTH, room-only key `pr_<b64u(exp)>.<b64u(HMAC_SHA256(root,"pawroom:"+exp))>`
+(v3.17, authRoomKey) authorizes /room/<code> + read/write of share-* ids ONLY —
+NOT generation, personal sync, or /img. Room invites carry pr_ by DEFAULT (the
+"Let guests make AI images on my account" toggle in Create Room / CLI
+--share-server is OFF); only when the host opts in do invites carry a full pt_.
+keyGrantsServer(key)/inviteGrantsServer(url) = true for root/pt_ only, and gate
+whether a fresh app adopts the invite's worker as its settings — so a room-only
+invite joins the room but NEVER configures the guest's server):
 - `POST /` — image generation. Body `{prompt, init_images?, ...}` → `{images:[b64]}`.
   No `init_images` → **txt2img via `@cf/black-forest-labs/flux-1-schnell`** (the
   only path the app uses now). With `init_images` → img2img via SD1.5 (legacy,
@@ -273,8 +283,12 @@ Friends get their own Cloudflare account + worker URL rather than a shared one.
   meta.expiresAt on the DO (?exp= socket param; alarm = min(60d inactivity,
   exp), 410 after); expired rooms hide from Home pills (not deleted — a
   renewed invite re-scan brings them back); in-app Create asks optional exp
-  days. Onboarding invite links/QRs are this same RoomRef payload — see
-  lib/invite.ts in Layout.
+  days. **Server sharing is OPT-IN (v3.17):** RoomRef.shareServer (Create Room
+  toggle, default off / CLI --share-server) decides the invite key — off = a
+  room-only pr_ key (guests join + swap decks, can't generate on the host's
+  server, and a fresh guest's settings are NOT auto-configured); on = a full
+  pt_ key (guests can generate + fresh apps adopt the server). Onboarding
+  invite links/QRs are this same RoomRef payload — see lib/invite.ts in Layout.
 
 ## Hard-won lessons (do not re-learn these)
 

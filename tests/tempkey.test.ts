@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'bun:test'
 import {
+  isRoomKey,
   isShareKey,
   isTempKey,
+  keyGrantsServer,
+  mintRoomKey,
   mintShareKey,
   mintTempKey,
   tempKeyExp,
+  urlWithRoomKey,
   urlWithShareKey,
   urlWithTempKey,
+  verifyRoomKey,
   verifyShareKey,
   verifyTempKey,
 } from '../src/lib/tempkey'
@@ -84,7 +89,37 @@ describe('scoped share keys', () => {
   })
 })
 
-describe('worker authKey / authShareKey (mirror cross-check)', () => {
+describe('room keys (join + swap decks, NOT generation)', () => {
+  it('mints pr_ keys distinct from temp/share keys', async () => {
+    const key = await mintRoomKey(ROOT, FUTURE)
+    expect(isRoomKey(key)).toBe(true)
+    expect(isTempKey(key)).toBe(false)
+    expect(isShareKey(key)).toBe(false)
+  })
+
+  it('verifies against the root and expiry', async () => {
+    expect(await verifyRoomKey(await mintRoomKey(ROOT, FUTURE), ROOT)).toBe(true)
+    expect(await verifyRoomKey(await mintRoomKey(ROOT, FUTURE), 'other-root')).toBe(false)
+    expect(await verifyRoomKey(await mintRoomKey(ROOT, PAST), ROOT)).toBe(false)
+  })
+
+  it('keyGrantsServer: root + pt_ grant; pr_ + ps_ do not', async () => {
+    expect(keyGrantsServer(ROOT)).toBe(true)
+    expect(keyGrantsServer(await mintTempKey(ROOT, FUTURE))).toBe(true)
+    expect(keyGrantsServer(await mintRoomKey(ROOT, FUTURE))).toBe(false)
+    expect(keyGrantsServer(await mintShareKey(ROOT, 'share-x-y-z', FUTURE))).toBe(false)
+    expect(keyGrantsServer('')).toBe(false)
+  })
+
+  it('urlWithRoomKey swaps a root key; no-op on temp/scoped urls', async () => {
+    const scoped = await urlWithRoomKey('https://paw.example.workers.dev/?key=' + ROOT, FUTURE)
+    expect(await verifyRoomKey(new URL(scoped).searchParams.get('key')!, ROOT)).toBe(true)
+    const tempUrl = await urlWithTempKey('https://paw.example.workers.dev/?key=' + ROOT, FUTURE)
+    expect(await urlWithRoomKey(tempUrl, FUTURE)).toBe(tempUrl)
+  })
+})
+
+describe('worker authKey / authShareKey / authRoomKey (mirror cross-check)', () => {
   const SHARE = 'share-aaaa-bbbb-cccc'
   it('accepts root, lib-minted temp keys, and nothing else', async () => {
     // @ts-expect-error plain-JS worker module
@@ -96,8 +131,19 @@ describe('worker authKey / authShareKey (mirror cross-check)', () => {
     expect(await authKey('wrong', ROOT)).toBe(false)
     expect(await authKey('', ROOT)).toBe(false)
     expect(await authKey('anything', '')).toBe(true) // no SECRET configured = open worker
-    // a scoped share token is NOT a general key
+    // scoped share / room keys are NOT general keys
     expect(await authKey(await mintShareKey(ROOT, SHARE, FUTURE), ROOT)).toBe(false)
+    expect(await authKey(await mintRoomKey(ROOT, FUTURE), ROOT)).toBe(false)
+  })
+
+  it('authRoomKey accepts a lib-minted room key, and only pr_', async () => {
+    // @ts-expect-error plain-JS worker module
+    const { authRoomKey } = await import('../worker/pawcards-worker.js')
+    expect(await authRoomKey(await mintRoomKey(ROOT, FUTURE), ROOT)).toBe(true)
+    expect(await authRoomKey(await mintRoomKey(ROOT, PAST), ROOT)).toBe(false)
+    expect(await authRoomKey(await mintRoomKey('other-root', FUTURE), ROOT)).toBe(false)
+    expect(await authRoomKey(await mintTempKey(ROOT, FUTURE), ROOT)).toBe(false) // temp key ≠ room key
+    expect(await authRoomKey(ROOT, ROOT)).toBe(false)
   })
 
   it('authShareKey accepts a lib-minted share key only for its bound id', async () => {

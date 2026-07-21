@@ -1,6 +1,18 @@
 import { b64uDecode, b64uEncode } from './b64url'
 import type { ConfigPayload } from './qrconfig'
 import { defaultSettings } from './settings'
+import { keyGrantsServer } from './tempkey'
+
+/** true when opening this invite may adopt its worker as the app's own settings
+ *  (its key grants generation + sync). A room-only key (pr_) returns false, so
+ *  the guest joins the room WITHOUT getting the host's server. */
+export function inviteGrantsServer(url: string): boolean {
+  try {
+    return keyGrantsServer(new URL(url).searchParams.get('key') ?? '')
+  } catch {
+    return false
+  }
+}
 
 /**
  * Invite payload — the generalized room QR (v2) that doubles as the
