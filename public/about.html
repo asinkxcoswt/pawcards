@@ -154,6 +154,12 @@
     <details><summary>What if I lose my phone?</summary><p>If you never synced, cards live only on that device — so export a backup now and then. If you did sync, just enter the same Sync ID on a new device and pull them back.</p></details>
     <details><summary>I'm technical — can I run my own?</summary><p>Yes. PawCards is designed for you to bring your own Cloudflare worker, so you host everything yourself and depend on no one. See the setup guide from the app.</p></details>
 
+    <p class="muted" style="font-size:13.5px">
+      A note on this site: we use privacy-friendly, cookieless analytics to count page visits (no cookies, no
+      tracking, no personal data). Anything deeper about how you use the app is off by default — we only measure it
+      if you choose to opt in.
+    </p>
+
     <footer>
       Made with care by <a href="mailto:dev@littlepawcraft.com">littlepawcraft</a>. Questions or ideas? We'd love to
       hear from you.
@@ -161,5 +167,17 @@
       <a class="backlink" href="/">← Back to PawCards</a>
     </footer>
   </main>
+  <!-- Cloudflare Web Analytics (same token as index.html — replace __CF_BEACON_TOKEN__) -->
+  <script>
+    (function () {
+      var t = "ea927002895145228d9b8f863cd22873";
+      if (t.slice(0, 2) === "__") return;
+      var s = document.createElement("script");
+      s.defer = true;
+      s.src = "https://static.cloudflareinsights.com/beacon.min.js";
+      s.setAttribute("data-cf-beacon", JSON.stringify({ token: t }));
+      document.head.appendChild(s);
+    })();
+  </script>
 </body>
 </html>

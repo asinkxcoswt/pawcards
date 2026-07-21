@@ -19,5 +19,21 @@
 <body>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
+  <!-- Cloudflare Web Analytics — cookieless, privacy-first page visits (no consent
+       banner needed). Get your token: Cloudflare dashboard → Web Analytics → Add a
+       site → copy the token, then replace __CF_BEACON_TOKEN__ below (same in
+       public/about.html). The token is public — safe to commit. It stays inert
+       until the token is set, so dev/tests never hit the network. -->
+  <script>
+    (function () {
+      var t = "ea927002895145228d9b8f863cd22873";
+      if (t.slice(0, 2) === "__") return; // token not set yet — don't load the beacon
+      var s = document.createElement("script");
+      s.defer = true;
+      s.src = "https://static.cloudflareinsights.com/beacon.min.js";
+      s.setAttribute("data-cf-beacon", JSON.stringify({ token: t }));
+      document.head.appendChild(s);
+    })();
+  </script>
 </body>
 </html>
