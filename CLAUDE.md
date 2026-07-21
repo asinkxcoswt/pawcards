@@ -241,9 +241,25 @@ invite joins the room but NEVER configures the guest's server):
   `[[durable_objects.bindings]]` + `[[migrations]]` blocks
   (copy in `worker/wrangler.toml`) — without them: "ROOM binding missing".
 
+Analytics (v3.18, opt-in): the fetch handler is wrapped — one **Analytics
+Engine** data point per request (binding `ANALYTICS`, dataset
+`<worker>_events`). Privacy: NO card content; the per-user index is a truncated
+SHA-256 of the request's id (never the raw Sync ID, a bearer secret). Schema:
+`indexes[0]`=hashed id (sync/img/room carry one; generate has none →empty),
+`blobs`=[event, method, keyType(root/temp/room/share/none), v], `doubles`=
+[status, ok(1/0), ms]. Absent binding = silent no-op, so it never breaks a
+request or a deploy. Enable per-account once in the dashboard (Workers →
+Analytics Engine, free), then `bun worker/cli.ts <profile> deploy --analytics`
+(persisted in the profile; `--no-analytics` undoes it). Query via the SQL API,
+e.g. DAU `SELECT count(DISTINCT index1) FROM <ds> WHERE timestamp > now()-
+interval '1' day`; generation volume/errors `SELECT blob1 event, count(),
+avg(double2) ok_rate FROM <ds> GROUP BY event`; a hashed user's activity days
+`SELECT toDate(timestamp), count() FROM <ds> WHERE index1='<hash>' GROUP BY 1`.
+
 Free-tier notes: Workers AI = 10k neurons/day **per account** (not per worker);
 KV = 1k writes/day (sync is user-triggered or on open/hide, never on a timer).
-Friends get their own Cloudflare account + worker URL rather than a shared one.
+Analytics Engine free tier writes ≈ millions of points/day. Friends get their
+own Cloudflare account + worker URL rather than a shared one.
 
 ## Sync design
 

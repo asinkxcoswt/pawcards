@@ -5,7 +5,9 @@
  *
  *   bunx wrangler login                                  (once per machine)
  *
- *   bun worker/cli.ts <profile> deploy [--kv NAME]       create/update the stack
+ *   bun worker/cli.ts <profile> deploy [--kv NAME] [--analytics]   create/update the stack
+ *     --analytics binds Cloudflare Analytics Engine (anonymous usage stats;
+ *     enable it once in the dashboard first). Persisted; --no-analytics undoes it.
  *   bun worker/cli.ts <profile> rotate-key               new SECRET (old keys + temp keys die)
  *   bun worker/cli.ts <profile> create-room --exp 30d [--name "My Room"] [--host-name John] [--share-server]
  *   bun worker/cli.ts <profile> destroy                  delete worker (+ profile-created KV)
@@ -105,6 +107,8 @@ interface Profile {
   kv: string
   /** app origin used to build ready-to-share invite links */
   app?: string
+  /** bind Analytics Engine (deploy --analytics; needs it enabled in the dashboard) */
+  analytics?: boolean
 }
 const DEFAULT_APP = 'https://pawcards.littlepawcraft.com'
 if (!/^[a-z0-9][a-z0-9-]{0,52}$/.test(profileName)) {
@@ -218,6 +222,21 @@ async function handOver(
 if (command === 'deploy') {
   checkLogin()
 
+  // opt-in analytics — persisted so later deploys keep it. --no-analytics turns it back off.
+  if (args.includes('--analytics') && !profile.analytics) {
+    profile.analytics = true
+    writeFileSync(profilePath, JSON.stringify(profile, null, 2) + '\n')
+  } else if (args.includes('--no-analytics') && profile.analytics) {
+    profile.analytics = false
+    writeFileSync(profilePath, JSON.stringify(profile, null, 2) + '\n')
+  }
+  if (profile.analytics) {
+    console.log(
+      '\n📊 Analytics ON — the config binds Analytics Engine. If this deploy fails with "enable Analytics\n' +
+        '   Engine", turn it on once (free) in the dashboard → Workers → Analytics Engine, then re-run.',
+    )
+  }
+
   console.log('\n② KV namespace (sync docs + deck shares + images)…')
   let kvId: string
   if (/^[0-9a-f]{32}$/.test(profile.kv)) {
@@ -246,7 +265,7 @@ if (command === 'deploy') {
     }
   }
 
-  console.log('\n③ Deploying the worker (AI + KV + PawRoom Durable Object)…')
+  console.log(`\n③ Deploying the worker (AI + KV + PawRoom DO${profile.analytics ? ' + Analytics Engine' : ''})…`)
   writeFileSync(
     configPath,
     JSON.stringify(
@@ -259,6 +278,11 @@ if (command === 'deploy') {
         kv_namespaces: [{ binding: 'SYNC', id: kvId }],
         durable_objects: { bindings: [{ name: 'ROOM', class_name: 'PawRoom' }] },
         migrations: [{ tag: 'v1-rooms', new_sqlite_classes: ['PawRoom'] }],
+        // anonymous usage analytics (opt-in via deploy --analytics); the worker
+        // no-ops when the binding is absent
+        ...(profile.analytics
+          ? { analytics_engine_datasets: [{ binding: 'ANALYTICS', dataset: profile.worker.replace(/-/g, '_') + '_events' }] }
+          : {}),
       },
       null,
       2,

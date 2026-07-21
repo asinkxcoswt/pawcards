@@ -151,8 +151,58 @@ const badKey = (key) =>
       : "wrong or missing ?key=",
   });
 
+/* ---------- analytics (Cloudflare Analytics Engine, binding ANALYTICS) ----------
+ * One data point per request. Privacy: NO card content, and the per-user index
+ * is a truncated SHA-256 of the id — never the raw Sync ID (a bearer secret).
+ * Absent binding = silently no-op. Query with the SQL API (see CLAUDE.md).
+ */
+async function hashId(id) {
+  if (!id) return "";
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(id));
+  return [...new Uint8Array(buf).slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function logEvent(env, request, status, ms) {
+  try {
+    const url = new URL(request.url);
+    const p = url.pathname;
+    const event =
+      p === "/" ? "generate" :
+      p === "/sync" ? "sync-" + request.method.toLowerCase() :
+      p === "/img" ? "img-" + request.method.toLowerCase() :
+      p === "/img-gc" ? "img-gc" :
+      p.startsWith("/room/") ? "room" : "other";
+    const key = url.searchParams.get("key") || "";
+    const keyType = key.startsWith("pt_") ? "temp" : key.startsWith("pr_") ? "room"
+      : key.startsWith("ps_") ? "share" : key ? "root" : "none";
+    // sync/img/room carry an id (Sync ID, share id, or room) → per-user signal;
+    // generation has none, so it aggregates under the empty index
+    const uid = await hashId(url.searchParams.get("id") || url.searchParams.get("room") || "");
+    env.ANALYTICS.writeDataPoint({
+      indexes: [uid],
+      blobs: [event, request.method, keyType, url.searchParams.get("v") || ""],
+      doubles: [status, status < 400 ? 1 : 0, ms],
+    });
+  } catch {
+    /* analytics must never affect a real request */
+  }
+}
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
+    const started = Date.now();
+    let res;
+    try {
+      res = await handleRequest(request, env);
+    } catch (e) {
+      res = json(502, { error: "worker error: " + ((e && e.message) || e) });
+    }
+    if (env && env.ANALYTICS && ctx) ctx.waitUntil(logEvent(env, request, res.status, Date.now() - started));
+    return res;
+  },
+};
+
+async function handleRequest(request, env) {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: CORS });
     }
@@ -351,8 +401,7 @@ export default {
     } catch (e) {
       return json(502, { error: "Workers AI failed: " + (e && e.message || e) });
     }
-  },
-};
+}
 
 /* ═══════════════ PawRoom — one Durable Object per workshop room ═══════════════
  *
