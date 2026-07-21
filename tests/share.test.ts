@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'bun:test'
-import { encodeShareQr, newShareId, parseShareQr, validateShareDoc, type DeckShareQr } from '../src/lib/share'
+import {
+  deckShareLink,
+  encodeShareQr,
+  newShareId,
+  parseDeckShareFragment,
+  parseShareQr,
+  validateShareDoc,
+  type DeckShareQr,
+} from '../src/lib/share'
 import type { Card, Deck } from '../src/lib/types'
 
 const qr: DeckShareQr = {
@@ -44,6 +52,25 @@ describe('deck share QR', () => {
     expect(() =>
       parseShareQr(JSON.stringify({ t: 'pawcards-share', v: 1, url: 'https://x.dev/?key=1', id: 'paw-not-a-share' })),
     ).toThrow('share id')
+  })
+})
+
+describe('deck share link (#deck= fragment)', () => {
+  test('builds an app link with openExternalBrowser + a fragment payload', () => {
+    const link = deckShareLink('https://pawcards.littlepawcraft.com/', qr)
+    expect(link.startsWith('https://pawcards.littlepawcraft.com/?openExternalBrowser=1#deck=')).toBe(true)
+    expect(parseDeckShareFragment(new URL(link).hash)).toEqual(qr)
+  })
+
+  test('survives Thai deck names through base64url', () => {
+    const p = { ...qr, name: 'สำรับอาหารไทย', by: 'ข่าน' }
+    expect(parseDeckShareFragment(new URL(deckShareLink('https://x.app', p)).hash)).toEqual(p)
+  })
+
+  test('ignores hashes without a deck payload (incl. a room invite)', () => {
+    expect(parseDeckShareFragment('')).toBeNull()
+    expect(parseDeckShareFragment('#ws=abc')).toBeNull()
+    expect(parseDeckShareFragment('#deck=%%%')).toBeNull()
   })
 })
 

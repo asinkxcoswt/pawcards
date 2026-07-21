@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { useStore } from '../store'
-import { encodeShareQr, shareableCards, uploadDeckShare, type DeckShareQr } from '../lib/share'
+import { deckShareLink, encodeShareQr, shareableCards, uploadDeckShare, type DeckShareQr } from '../lib/share'
 import QrShareButton from './QrShareButton'
 import Icon from './Icon'
 
@@ -14,7 +14,7 @@ export default function ShareDeckModal({ deckId, onClose }: { deckId: string; on
   const settings = useStore((s) => s.settings)
   const deck = useStore((s) => s.decks.find((d) => d.id === deckId))
   const allCards = useStore((s) => s.cards)
-  const { saveSettings } = useStore.getState()
+  const { saveSettings, showToast } = useStore.getState()
 
   const [nickname, setNickname] = useState(settings.nickname)
   const [phase, setPhase] = useState<'name' | 'uploading' | 'qr'>(settings.nickname ? 'uploading' : 'name')
@@ -45,6 +45,24 @@ export default function ShareDeckModal({ deckId, onClose }: { deckId: string; on
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const copyLink = async () => {
+    if (!qr) return
+    try {
+      await navigator.clipboard.writeText(deckShareLink(location.origin, qr))
+      showToast('🔗 Deck link copied — paste it to a friend')
+    } catch {
+      showToast('Could not copy — long-press the QR instead')
+    }
+  }
+  const shareLink = async () => {
+    if (!qr) return
+    try {
+      await navigator.share({ title: `PawCards deck: ${qr.name}`, url: deckShareLink(location.origin, qr) })
+    } catch {
+      /* user cancelled the share sheet */
+    }
+  }
 
   useEffect(() => {
     if (phase !== 'qr' || !qr || !canvasRef.current) return
@@ -121,12 +139,21 @@ export default function ShareDeckModal({ deckId, onClose }: { deckId: string; on
                   <br />
                 </>
               )}
-              Friends: open PawCards → tap the scan button (top-right) → scan this code. It grants read-only
-              access to just this deck and expires in 60 days — your server and your other decks stay private.
+              Send friends the link, or have them scan this code in PawCards. Expires in 60 days.
             </p>
             <div className="flex flex-col items-center">
               <canvas ref={canvasRef} className="rounded-lg" data-testid="share-qr-canvas" />
-              <QrShareButton canvasRef={canvasRef} filename={`pawcards-${deck.name}.png`} title={`PawCards deck: ${deck.name}`} />
+              <div className="mt-3 flex flex-wrap justify-center gap-2.5">
+                {typeof navigator.share === 'function' && (
+                  <button className="btn" data-testid="share-link" onClick={() => void shareLink()}>
+                    <Icon name="share" size={15} /> Share link
+                  </button>
+                )}
+                <button className="btn" data-testid="share-copy-link" onClick={() => void copyLink()}>
+                  <Icon name="link" size={15} /> Copy link
+                </button>
+                <QrShareButton canvasRef={canvasRef} filename={`pawcards-${deck.name}.png`} title={`PawCards deck: ${deck.name}`} />
+              </div>
             </div>
           </>
         )}

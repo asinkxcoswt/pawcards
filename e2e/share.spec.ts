@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import jsQR from 'jsqr'
-import { parseShareQr, type ShareDoc } from '../src/lib/share'
+import { deckShareLink, parseShareQr, type ShareDoc } from '../src/lib/share'
 import { createDeckAndCard, resetApp, store } from './helpers'
 
 const WORKER = 'https://pawshare.test.workers.dev'
@@ -94,6 +94,40 @@ test('share a deck via QR; a friend imports it with the 🤝 tag', async ({ brow
     ;(window as any).__store.getState().importSharedDeck(doc)
   }, stored)
   expect(await store<number>(B, 's => s.cards.length')).toBe(1)
+})
+
+test('deck-share LINK: a fresh user saves the deck, settings untouched', async ({ browser }) => {
+  kv.clear()
+  // a deck sits in the sharer's KV (as uploadDeckShare would leave it)
+  const shareId = 'share-link-test-01'
+  const shareDoc = {
+    deck: { id: 'dl1', name: 'Kanji N5', color: '#eee', created: 1 },
+    cards: [{ id: 'kc1', deckId: 'dl1', created: 1, updated: 1, front: [], back: [], backText: 'water = 水', srs: null, polished: {} }],
+    by: 'Nong',
+    at: 1,
+  }
+  kv.set(shareId, JSON.stringify({ doc: shareDoc, updatedAt: 1 }))
+  const qr = { url: WORKER + '/?key=pw', id: shareId, name: 'Kanji N5', by: 'Nong', count: 1 }
+  const u = new URL(deckShareLink('https://example.test', qr))
+  const link = u.pathname + u.search + u.hash
+
+  // a BRAND-NEW device opens the link
+  const B = await (await browser.newContext()).newPage()
+  await wire(B)
+  await B.goto(link)
+  await B.waitForFunction('window.__store && window.__store.getState().loaded')
+
+  // the deck-share popup appears (not onboarding), and saves on tap
+  await expect(B.getByTestId('deck-share-gate')).toBeVisible()
+  await expect(B.locator('[data-testid="onboarding"]')).toHaveCount(0)
+  await B.getByTestId('deck-share-save').click()
+
+  // the shared deck is added (alongside the bundled Example Deck a new user gets)
+  expect(await store<boolean>(B, "s => s.decks.some(d => d.name === 'Kanji N5')")).toBe(true)
+  expect(await store<boolean>(B, "s => s.cards.some(c => c.backText === 'water = 水')")).toBe(true)
+  // settings were NEVER auto-configured — this is the deck-link contract
+  expect(await store<string>(B, 's => s.settings.syncUrl')).toBe('')
+  expect(await store<string>(B, 's => s.settings.apiKey')).toBe('')
 })
 
 test('selection mode marks a card private; it is left out of the share', async ({ browser }) => {

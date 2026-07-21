@@ -44,7 +44,7 @@ export default function ImportShareModal({ onClose }: { onClose: () => void }) {
           <>
             <h2 className="m-0 mb-1 flex items-center gap-1.5 text-[17px] font-bold"><Icon name="share" size={17} /> Import a shared deck</h2>
             <p className="hint mb-3.5">
-              Point the camera at a friend's deck QR (they tap 🤝 Share inside their deck) — or pick a saved QR image.
+              Point the camera at a friend's deck QR (they tap Share inside their deck) — or pick a saved QR image.
             </p>
             <QrScanner active={!qr} onCode={onCode} />
           </>

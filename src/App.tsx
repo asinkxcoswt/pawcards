@@ -11,7 +11,9 @@ import RoomView from './components/RoomView'
 import Onboarding from './components/Onboarding'
 import InstallPrompt from './components/InstallPrompt'
 import InviteGate from './components/InviteGate'
+import DeckShareGate from './components/DeckShareGate'
 import { parseInviteFragment } from './lib/invite'
+import { parseDeckShareFragment } from './lib/share'
 import { detectPlatform, installDismissed, isStandalone } from './lib/pwa'
 import Toast from './components/Toast'
 
@@ -20,6 +22,8 @@ import Toast from './components/Toast'
 // drops the #fragment on Add-to-Home-Screen (launches from manifest start_url),
 // so an iOS install starts empty. See InviteGate.
 const bootInvite = typeof location !== 'undefined' ? parseInviteFragment(location.hash) : null
+// deck-share link: fetch one deck into the local library, never touch settings
+const bootDeckShare = typeof location !== 'undefined' ? parseDeckShareFragment(location.hash) : null
 
 export default function App() {
   const screen = useStore((s) => s.screen)
@@ -96,6 +100,7 @@ export default function App() {
   const showOnboarding =
     !showInstall &&
     !bootInvite &&
+    !bootDeckShare &&
     !settings.onboarded &&
     !settings.syncUrl.trim() &&
     !settings.apiKey.trim()
@@ -112,6 +117,7 @@ export default function App() {
       )}
       {showOnboarding && <Onboarding />}
       {bootInvite && <InviteGate invite={bootInvite} />}
+      {bootDeckShare && <DeckShareGate qr={bootDeckShare} />}
       <Toast />
       {updateTo && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(30,25,18,.4)]">

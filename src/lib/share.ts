@@ -1,3 +1,4 @@
+import { b64uDecode, b64uEncode } from './b64url'
 import { DAY_MS } from './constants'
 import { inlineCardImages } from './images'
 import { urlWithShareKey } from './tempkey'
@@ -122,4 +123,25 @@ export async function uploadDeckShare(syncUrl: string, by: string, deck: Deck, c
 /** Fetch + validate a shared deck from a scanned QR payload. */
 export async function fetchSharedDeck(qr: DeckShareQr): Promise<ShareDoc> {
   return validateShareDoc(await kvGet(qr.url, qr.id))
+}
+
+/* ---------- ready-to-share link (#deck= fragment) ---------- */
+// Same payload as the QR, packed into a link. UNLIKE the room invite link,
+// opening it NEVER touches the receiver's settings — it only fetches this one
+// deck and saves it locally (the scoped token in `url` needs no configuration).
+
+export function deckShareLink(appOrigin: string, qr: DeckShareQr): string {
+  const base = appOrigin.replace(/\/+$/, '')
+  return base + '/?openExternalBrowser=1#deck=' + b64uEncode(encodeShareQr(qr))
+}
+
+/** Extract a deck-share pointer from a location hash; null when none. */
+export function parseDeckShareFragment(hash: string): DeckShareQr | null {
+  const m = /[#&]deck=([A-Za-z0-9_-]+)/.exec(hash)
+  if (!m) return null
+  try {
+    return parseShareQr(b64uDecode(m[1]))
+  } catch {
+    return null
+  }
 }
