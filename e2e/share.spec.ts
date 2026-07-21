@@ -60,7 +60,11 @@ test('share a deck via QR; a friend imports it with the 🤝 tag', async ({ brow
   expect(qr.name).toBe('Thai Cooking')
   expect(qr.by).toBe('Khaan')
   expect(qr.count).toBe(1)
-  expect(qr.url).toBe(WORKER + '/?key=pw')
+  // the recipient url carries a SCOPED read-only token, never the root key
+  const shareUrl = new URL(qr.url)
+  expect(shareUrl.origin).toBe(WORKER)
+  expect(shareUrl.searchParams.get('key')).toMatch(/^ps_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/)
+  expect(qr.url).not.toContain('key=pw')
 
   // the deck (with cards) actually landed in KV under that id
   const stored = JSON.parse(kv.get(qr.id)!).doc as ShareDoc

@@ -16,6 +16,7 @@
  */
 
 export const TEMP_KEY_PREFIX = 'pt_'
+export const SHARE_KEY_PREFIX = 'ps_'
 
 const b64u = (bytes: Uint8Array): string => {
   let bin = ''
@@ -23,17 +24,21 @@ const b64u = (bytes: Uint8Array): string => {
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-async function hmac(rootKey: string, exp: number): Promise<string> {
+async function sign(rootKey: string, message: string): Promise<string> {
   const enc = new TextEncoder()
   const key = await crypto.subtle.importKey('raw', enc.encode(rootKey), { name: 'HMAC', hash: 'SHA-256' }, false, [
     'sign',
   ])
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode('pawtemp:' + exp))
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message))
   return b64u(new Uint8Array(sig))
 }
 
 export function isTempKey(key: string): boolean {
   return key.startsWith(TEMP_KEY_PREFIX)
+}
+
+export function isShareKey(key: string): boolean {
+  return key.startsWith(SHARE_KEY_PREFIX)
 }
 
 /** expiry (ms epoch) encoded in a temp key, or null if it isn't one / is damaged */
@@ -51,8 +56,7 @@ export function tempKeyExp(key: string): number | null {
 
 /** sign a temp key that the worker will accept until `exp` (needs the ROOT key) */
 export async function mintTempKey(rootKey: string, exp: number): Promise<string> {
-  const expB = b64u(new TextEncoder().encode(String(exp)))
-  return TEMP_KEY_PREFIX + expB + '.' + (await hmac(rootKey, exp))
+  return TEMP_KEY_PREFIX + b64u(new TextEncoder().encode(String(exp))) + '.' + (await sign(rootKey, 'pawtemp:' + exp))
 }
 
 /** verify a temp key against the root (mirror of the worker's check) */
@@ -73,5 +77,48 @@ export async function urlWithTempKey(url: string, exp: number): Promise<string> 
   const key = u.searchParams.get('key') ?? ''
   if (!key || isTempKey(key)) return url
   u.searchParams.set('key', await mintTempKey(key, exp))
+  return u.toString()
+}
+
+/* ---------- scoped share keys (read one KV id, nothing else) ---------- */
+
+/**
+ * A capability scoped to exactly one shared deck: it authorizes GET of the
+ * KV id `shareId` and nothing else — not your sync docs, other shares, image
+ * blobs, generation, or rooms. The id is bound into the MAC, so the token
+ * only validates for that id. Read-only + expiring + needs the ROOT to mint;
+ * rotating the root kills it. Worker mirror: pawcards-worker.js authShareKey.
+ */
+export async function mintShareKey(rootKey: string, shareId: string, exp: number): Promise<string> {
+  return (
+    SHARE_KEY_PREFIX + b64u(new TextEncoder().encode(String(exp))) + '.' + (await sign(rootKey, 'pawshare:' + shareId + ':' + exp))
+  )
+}
+
+/** verify a scoped share key against the root + the id it must be bound to */
+export async function verifyShareKey(key: string, rootKey: string, shareId: string, t = Date.now()): Promise<boolean> {
+  if (!isShareKey(key)) return false
+  const dot = key.indexOf('.')
+  if (dot < 0) return false
+  let exp: number
+  try {
+    exp = Number(atob(key.slice(SHARE_KEY_PREFIX.length, dot).replace(/-/g, '+').replace(/_/g, '/')))
+  } catch {
+    return false
+  }
+  if (!Number.isFinite(exp) || t > exp) return false
+  return key === (await mintShareKey(rootKey, shareId, exp))
+}
+
+/**
+ * Rewrite a worker URL's ?key= to a scoped share token for `shareId`. No-op
+ * when the url's key isn't a root key (temp/scoped keys can't mint — the
+ * holder reshares their key as-is), matching urlWithTempKey.
+ */
+export async function urlWithShareKey(url: string, shareId: string, exp: number): Promise<string> {
+  const u = new URL(url)
+  const key = u.searchParams.get('key') ?? ''
+  if (!key || isTempKey(key) || isShareKey(key)) return url
+  u.searchParams.set('key', await mintShareKey(key, shareId, exp))
   return u.toString()
 }

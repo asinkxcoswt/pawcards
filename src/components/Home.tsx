@@ -23,8 +23,8 @@ export default function Home() {
     <section className="flex h-dvh flex-col overflow-hidden">
       <header className="flex items-center gap-2.5 px-4 pb-2.5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}>
         <Logo className="h-7 flex-1" />
-        <button className="iconbtn" title="Import a shared deck" data-testid="import-share" onClick={() => setShowImport(true)}>
-          <Icon name="share" />
+        <button className="iconbtn" title="Scan a shared deck QR" data-testid="import-share" onClick={() => setShowImport(true)}>
+          <Icon name="qr" />
         </button>
         <button className="iconbtn" title="Settings" onClick={() => setShowSettings(true)}>
           <Icon name="settings" />

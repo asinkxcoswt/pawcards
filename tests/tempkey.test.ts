@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'bun:test'
-import { isTempKey, mintTempKey, tempKeyExp, urlWithTempKey, verifyTempKey } from '../src/lib/tempkey'
+import {
+  isShareKey,
+  isTempKey,
+  mintShareKey,
+  mintTempKey,
+  tempKeyExp,
+  urlWithShareKey,
+  urlWithTempKey,
+  verifyShareKey,
+  verifyTempKey,
+} from '../src/lib/tempkey'
 
 const ROOT = 'a1b2c3d4e5f60718293a4b5c'
 const FUTURE = Date.now() + 30 * 24 * 60 * 60 * 1000
@@ -43,7 +53,39 @@ describe('temp keys', () => {
   })
 })
 
-describe('worker authKey (mirror cross-check)', () => {
+describe('scoped share keys', () => {
+  const SHARE = 'share-aaaa-bbbb-cccc'
+
+  it('mints ps_-prefixed keys bound to one id', async () => {
+    const key = await mintShareKey(ROOT, SHARE, FUTURE)
+    expect(isShareKey(key)).toBe(true)
+    expect(isTempKey(key)).toBe(false)
+  })
+
+  it('verifies only for the exact id it was minted for', async () => {
+    const key = await mintShareKey(ROOT, SHARE, FUTURE)
+    expect(await verifyShareKey(key, ROOT, SHARE)).toBe(true)
+    expect(await verifyShareKey(key, ROOT, 'share-other-deck-xx')).toBe(false) // wrong deck
+    expect(await verifyShareKey(key, 'other-root', SHARE)).toBe(false) // rotation kills it
+  })
+
+  it('rejects expired share keys', async () => {
+    expect(await verifyShareKey(await mintShareKey(ROOT, SHARE, PAST), ROOT, SHARE)).toBe(false)
+  })
+
+  it('urlWithShareKey swaps a root key; leaves temp/share urls untouched', async () => {
+    const scoped = await urlWithShareKey('https://paw.example.workers.dev/?key=' + ROOT, SHARE, FUTURE)
+    const key = new URL(scoped).searchParams.get('key')!
+    expect(isShareKey(key)).toBe(true)
+    expect(await verifyShareKey(key, ROOT, SHARE)).toBe(true)
+    // an attendee holding a temp key can't mint — reshares as-is
+    const tempUrl = await urlWithTempKey('https://paw.example.workers.dev/?key=' + ROOT, FUTURE)
+    expect(await urlWithShareKey(tempUrl, SHARE, FUTURE)).toBe(tempUrl)
+  })
+})
+
+describe('worker authKey / authShareKey (mirror cross-check)', () => {
+  const SHARE = 'share-aaaa-bbbb-cccc'
   it('accepts root, lib-minted temp keys, and nothing else', async () => {
     // @ts-expect-error plain-JS worker module
     const { authKey } = await import('../worker/pawcards-worker.js')
@@ -54,6 +96,18 @@ describe('worker authKey (mirror cross-check)', () => {
     expect(await authKey('wrong', ROOT)).toBe(false)
     expect(await authKey('', ROOT)).toBe(false)
     expect(await authKey('anything', '')).toBe(true) // no SECRET configured = open worker
+    // a scoped share token is NOT a general key
+    expect(await authKey(await mintShareKey(ROOT, SHARE, FUTURE), ROOT)).toBe(false)
+  })
+
+  it('authShareKey accepts a lib-minted share key only for its bound id', async () => {
+    // @ts-expect-error plain-JS worker module
+    const { authShareKey } = await import('../worker/pawcards-worker.js')
+    const key = await mintShareKey(ROOT, SHARE, FUTURE)
+    expect(await authShareKey(key, ROOT, SHARE)).toBe(true)
+    expect(await authShareKey(key, ROOT, 'share-other-deck-xx')).toBe(false)
+    expect(await authShareKey(await mintShareKey(ROOT, SHARE, PAST), ROOT, SHARE)).toBe(false)
+    expect(await authShareKey(await mintTempKey(ROOT, FUTURE), ROOT, SHARE)).toBe(false) // temp key ≠ share key
   })
 })
 

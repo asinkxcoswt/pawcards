@@ -104,10 +104,30 @@ export async function authKey(key, secret) { // exported for the unit-test cross
   return key.slice(dot + 1) === sig;
 }
 
+// A scoped share token (ps_) authorizes reading exactly ONE KV id (a shared
+// deck) and nothing else — the id is bound into the MAC (mirror of
+// src/lib/tempkey.ts mintShareKey; keep in sync).
+export async function authShareKey(key, secret, id) { // exported for the unit-test cross-check
+  if (!secret || !key || !key.startsWith("ps_")) return false;
+  const dot = key.indexOf(".");
+  if (dot < 0) return false;
+  let exp;
+  try {
+    exp = Number(atob(key.slice(3, dot).replace(/-/g, "+").replace(/_/g, "/")));
+  } catch {
+    return false;
+  }
+  if (!Number.isFinite(exp) || Date.now() > exp) return false;
+  const enc = new TextEncoder();
+  const k = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = b64u(new Uint8Array(await crypto.subtle.sign("HMAC", k, enc.encode("pawshare:" + id + ":" + exp))));
+  return key.slice(dot + 1) === sig;
+}
+
 const badKey = (key) =>
   json(403, {
-    error: key && key.startsWith("pt_")
-      ? "this invite key has expired — ask the host for a new invite"
+    error: key && (key.startsWith("pt_") || key.startsWith("ps_"))
+      ? "this share/invite key has expired — ask for a new one"
       : "wrong or missing ?key=",
   });
 
@@ -137,14 +157,16 @@ export default {
 
     /* ---------- Cloud sync: GET/PUT /sync?key=SECRET&id=SYNCID ---------- */
     if (url.pathname === "/sync") {
-      if (!(await authKey(url.searchParams.get("key"), secret))) {
-        return badKey(url.searchParams.get("key"));
-      }
+      const key = url.searchParams.get("key");
+      const id = (url.searchParams.get("id") || "").trim();
+      if (id.length < 8) return json(400, { error: "sync id missing or too short" });
+      // root/temp key = full access; a scoped share token (ps_) grants READ of
+      // this one id only (a shared deck) — never write, never another id
+      const authed = (await authKey(key, secret)) || (request.method === "GET" && (await authShareKey(key, secret, id)));
+      if (!authed) return badKey(key);
       if (!env.SYNC) {
         return json(500, { error: "SYNC storage missing — create a KV namespace and bind it as SYNC (see wrangler.toml)" });
       }
-      const id = (url.searchParams.get("id") || "").trim();
-      if (id.length < 8) return json(400, { error: "sync id missing or too short" });
       const kvKey = "doc:" + id;
       if (request.method === "GET") {
         const stored = await env.SYNC.get(kvKey);

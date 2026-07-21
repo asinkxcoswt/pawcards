@@ -105,8 +105,12 @@ src/
                       the room (deliberate settings replace); Rooms→Join on a
                       fresh app adopts settings too (QR flavour of the link).
   lib/share.ts        deck sharing: deck uploads to KV (share-… id, images incl.),
-                      QR carries only the pointer {url, id, name, by, count};
-                      shareableCards() drops card.private (🔒) from every share
+                      QR carries only the pointer {url, id, name, by, count} where
+                      url's ?key= is a SCOPED read-only token (ps_, v3.15,
+                      tempkey.ts mintShareKey) — grants GET of just that share id,
+                      not your root key/other data (worker authShareKey verifies;
+                      an attendee with a pt_ key reshares it as-is since only root
+                      can mint). shareableCards() drops card.private (🔒) from every share
   lib/room.ts         workshop rooms: PawRoom Durable Object on the CREATOR's
                       worker (wss://…/room/<code>), one DO per room, pushes full
                       state on every change (useRoom hook, auto-reconnect).
@@ -196,7 +200,10 @@ tests/tempkey.test.ts). exp is inside the MAC (tamper-proof); only root
 holders can mint (attendees RESHARE their pt_ key — `urlWithTempKey` is a
 no-op on temp urls); rotating SECRET invalidates all temp keys at once; no
 KV involved. Room invites (in-app + CLI) always carry a temp key — the root
-key never enters a QR/link):
+key never enters a QR/link. A THIRD, tighter token gates deck shares: a
+SCOPED share key `ps_<b64u(exp)>.<b64u(HMAC_SHA256(root,"pawshare:"+id+":"+exp))>`
+(v3.15, authShareKey) that only authorizes GET /sync for its one bound id —
+so a deck-share recipient reads just that deck, never your key or other data):
 - `POST /` — image generation. Body `{prompt, init_images?, ...}` → `{images:[b64]}`.
   No `init_images` → **txt2img via `@cf/black-forest-labs/flux-1-schnell`** (the
   only path the app uses now). With `init_images` → img2img via SD1.5 (legacy,

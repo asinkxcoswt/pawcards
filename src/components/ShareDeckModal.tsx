@@ -121,8 +121,8 @@ export default function ShareDeckModal({ deckId, onClose }: { deckId: string; on
                   <br />
                 </>
               )}
-              Friends: open PawCards → tap 🤝 on the home screen → scan this code. The link expires after 60 days.
-              Anyone with this code can also use your Worker, so share it within your group only.
+              Friends: open PawCards → tap the scan button (top-right) → scan this code. It grants read-only
+              access to just this deck and expires in 60 days — your server and your other decks stay private.
             </p>
             <div className="flex flex-col items-center">
               <canvas ref={canvasRef} className="rounded-lg" data-testid="share-qr-canvas" />

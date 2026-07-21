@@ -1,4 +1,6 @@
+import { DAY_MS } from './constants'
 import { inlineCardImages } from './images'
+import { urlWithShareKey } from './tempkey'
 import type { Card, Deck } from './types'
 import { syncEndpoint } from './sync'
 
@@ -111,7 +113,10 @@ export async function uploadDeckShare(syncUrl: string, by: string, deck: Deck, c
   const id = newShareId()
   const doc: ShareDoc = { deck, cards: inlined.cards, by, at: Date.now() }
   await kvPut(syncUrl, id, doc)
-  return { url: syncUrl, id, name: deck.name, by, count: cards.length }
+  // the recipient gets a SCOPED, read-only token (access to just this deck,
+  // expiring with the 60-day KV TTL) — never your worker key (see tempkey.ts)
+  const url = await urlWithShareKey(syncUrl, id, Date.now() + 60 * DAY_MS)
+  return { url, id, name: deck.name, by, count: cards.length }
 }
 
 /** Fetch + validate a shared deck from a scanned QR payload. */
