@@ -8,15 +8,18 @@ export default function QrShareButton({
   canvasRef,
   filename,
   title,
+  className = 'mt-3',
 }: {
   canvasRef: RefObject<HTMLCanvasElement | null>
   filename: string
   title: string
+  /** margin/layout classes — pass '' when placed inside a flex button row */
+  className?: string
 }) {
   const showToast = useStore((s) => s.showToast)
   return (
     <button
-      className="btn mt-3"
+      className={'btn ' + className}
       data-testid="qr-share-btn"
       onClick={() => {
         const cv = canvasRef.current

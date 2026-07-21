@@ -143,7 +143,7 @@ export default function ShareDeckModal({ deckId, onClose }: { deckId: string; on
             </p>
             <div className="flex flex-col items-center">
               <canvas ref={canvasRef} className="rounded-lg" data-testid="share-qr-canvas" />
-              <div className="mt-3 flex flex-wrap justify-center gap-2.5">
+              <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2.5">
                 {typeof navigator.share === 'function' && (
                   <button className="btn" data-testid="share-link" onClick={() => void shareLink()}>
                     <Icon name="share" size={15} /> Share link
@@ -152,7 +152,7 @@ export default function ShareDeckModal({ deckId, onClose }: { deckId: string; on
                 <button className="btn" data-testid="share-copy-link" onClick={() => void copyLink()}>
                   <Icon name="link" size={15} /> Copy link
                 </button>
-                <QrShareButton canvasRef={canvasRef} filename={`pawcards-${deck.name}.png`} title={`PawCards deck: ${deck.name}`} />
+                <QrShareButton className="" canvasRef={canvasRef} filename={`pawcards-${deck.name}.png`} title={`PawCards deck: ${deck.name}`} />
               </div>
             </div>
           </>

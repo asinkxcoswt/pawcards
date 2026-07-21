@@ -410,6 +410,8 @@ function InviteModal({ payload, onClose }: { payload: InvitePayload; onClose: ()
     )
   }, [inv])
 
+  const inviteDays = inv?.exp ? Math.max(0, Math.ceil((inv.exp - Date.now()) / (24 * 60 * 60 * 1000))) : null
+
   const copyLink = async () => {
     if (!inv) return
     const link = inviteLink(location.origin, inv)
@@ -438,15 +440,14 @@ function InviteModal({ payload, onClose }: { payload: InvitePayload; onClose: ()
           <Icon name="qr" size={17} /> Invite to “{name}”
         </h2>
         <p className="hint mb-3.5">
-          Friends with PawCards: 🏫 Rooms → 📷 Join → scan this. New friends: send them the link — it sets everything
-          up. The invite carries a temporary key{inv?.exp ? ` (⏳ ${expiresLabel(inv.exp)})` : ''} — your own key stays
-          private.
+          Send friends the link, or have them scan this code in PawCards (Rooms → Join). New friends get set up
+          automatically.{inviteDays !== null ? (inviteDays <= 0 ? ' Expires today.' : ` Expires in ${inviteDays} day${inviteDays === 1 ? '' : 's'}.`) : ''}
         </p>
         <div className="flex flex-col items-center">
           {!inv && !error && <p className="hint py-10">Preparing invite…</p>}
           <canvas ref={canvasRef} className={'rounded-lg' + (inv ? '' : ' hidden')} data-testid="room-qr-canvas" />
           {inv && (
-            <div className="flex flex-wrap justify-center gap-2.5">
+            <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2.5">
               {typeof navigator.share === 'function' && (
                 <button className="btn" data-testid="room-share-link" onClick={() => void shareLink()}>
                   <Icon name="share" size={15} /> Share link
@@ -455,7 +456,7 @@ function InviteModal({ payload, onClose }: { payload: InvitePayload; onClose: ()
               <button className="btn" data-testid="room-copy-link" onClick={() => void copyLink()}>
                 <Icon name="link" size={15} /> Copy link
               </button>
-              <QrShareButton canvasRef={canvasRef} filename={`pawcards-room-${name}.png`} title={`Join my PawCards room: ${name}`} />
+              <QrShareButton className="" canvasRef={canvasRef} filename={`pawcards-room-${name}.png`} title={`Join my PawCards room: ${name}`} />
             </div>
           )}
         </div>
