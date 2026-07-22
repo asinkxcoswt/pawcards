@@ -147,9 +147,10 @@ test('selection mode marks a card private; it is left out of the share', async (
     })
   }, deckId)
 
-  // enter selection mode, lock the secret card, leave
+  // select the secret card, mark the selection private, leave
   await A.getByTestId('select-mode').click()
   await A.getByTestId('select-card-secret').click()
+  await A.getByTestId('toggle-private').click()
   await expect(A.getByTestId('private-badge-secret')).toBeVisible()
   await A.getByTestId('select-done').click()
   // the flag persisted with a touch (sync-safe)

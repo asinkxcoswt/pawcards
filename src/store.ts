@@ -9,6 +9,7 @@ import {
   runImgGc,
   uploadImage,
 } from './lib/images'
+import { orderForMove, sortDeckCards } from './lib/order'
 import { runPolish } from './lib/polish'
 import { defaultDoc, defaultSettings, migrateSettings } from './lib/settings'
 import { applyGrade, dueCards, isDue, unretire } from './lib/srs'
@@ -54,13 +55,20 @@ interface Actions {
   setFrontText: (id: string, ft: import('./lib/types').FrontText | undefined) => void
   /** flip a card's "keep private / don't share" flag */
   toggleCardPrivate: (id: string) => void
+  /** bulk set (or clear) the private flag on the given cards */
+  setCardsPrivate: (ids: string[], value: boolean) => void
+  /** move cards into another deck (drops their manual order — it belonged to the old deck) */
+  moveCards: (ids: string[], toDeckId: string) => void
+  /** drag & drop: move a card to `toIndex` in its deck's display order */
+  reorderCard: (deckId: string, cardId: string, toIndex: number) => void
 
   // AI generation; customSubject overrides the backText-derived subject
   requestPolish: (id: string, customSubject?: string) => 'queued' | 'no-answer' | 'no-key' | 'busy'
 
   // review
   startReview: (deckId: string | null) => boolean
-  startCram: (deckId: string) => boolean
+  /** "review all" — the whole deck, optionally shuffled and capped to `count` */
+  startCram: (deckId: string, opts?: { count?: number; shuffle?: boolean }) => boolean
   flip: () => void
   grade: (g: Grade) => void
   endReview: () => void
@@ -299,6 +307,39 @@ export const useStore = create<Store>((set, get) => {
         return touch(next)
       }),
     toggleCardPrivate: (id) => patchCard(id, (c) => touch({ ...c, private: !c.private })),
+    setCardsPrivate: (ids, value) => {
+      const pick = new Set(ids)
+      set((s) => ({
+        cards: s.cards.map((c) => {
+          if (!pick.has(c.id) || !!c.private === value) return c
+          const next = { ...c }
+          if (value) next.private = true
+          else delete next.private
+          return touch(next)
+        }),
+      }))
+      persist(get)
+    },
+    moveCards: (ids, toDeckId) => {
+      const pick = new Set(ids)
+      set((s) => ({
+        cards: s.cards.map((c) => {
+          if (!pick.has(c.id) || c.deckId === toDeckId) return c
+          // `order` is a position within the OLD deck — drop it so the card
+          // falls back to newest-first in its new home (see lib/order.ts)
+          const next = { ...c, deckId: toDeckId }
+          delete next.order
+          return touch(next)
+        }),
+      }))
+      persist(get)
+    },
+    reorderCard: (deckId, cardId, toIndex) => {
+      const ordered = sortDeckCards(get().cards, deckId)
+      const order = orderForMove(ordered, cardId, toIndex)
+      if (order === null) return
+      patchCard(cardId, (c) => touch({ ...c, order }))
+    },
 
     /* ---------- AI generation (async queue, one job per card) ---------- */
     requestPolish: (id, customSubject) => {
@@ -338,15 +379,16 @@ export const useStore = create<Store>((set, get) => {
       })
       return true
     },
-    startCram: (deckId) => {
-      const q = get()
-        .cards.filter((c) => c.deckId === deckId)
-        .map((c) => c.id)
+    startCram: (deckId, opts) => {
+      const q = sortDeckCards(get().cards, deckId).map((c) => c.id)
       if (!q.length) return false
-      for (let i = q.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[q[i], q[j]] = [q[j], q[i]]
+      if (opts?.shuffle ?? true) {
+        for (let i = q.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          ;[q[i], q[j]] = [q[j], q[i]]
+        }
       }
+      if (opts?.count && opts.count > 0 && opts.count < q.length) q.length = opts.count
       set({
         session: { queue: q, i: 0, deckId, cram: true, flipped: false, done: 0, total: q.length },
         screen: 'review',

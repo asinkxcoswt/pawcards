@@ -8,14 +8,25 @@ import type { Card } from '../lib/types'
  * + caption, tap to flip to the answer. Opened from the editor so you can
  * check a card without leaving editing.
  */
-export default function CardPreviewModal({ card, onClose }: { card: Card; onClose: () => void }) {
+export default function CardPreviewModal({
+  card,
+  onClose,
+  title = 'Preview',
+}: {
+  card: Card
+  onClose: () => void
+  /** heading — "Preview" from the editor, "Review" when picking cards to study */
+  title?: string
+}) {
   const [flipped, setFlipped] = useState(false)
   const side: 'front' | 'back' = flipped ? 'back' : 'front'
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[rgba(20,18,15,.78)]" data-testid="card-preview">
+    // near-opaque + blurred: at 78% the page header behind showed through and
+    // collided with this one's title
+    <div className="fixed inset-0 z-50 flex flex-col bg-[rgba(20,18,15,.94)] backdrop-blur-sm" data-testid="card-preview">
       <div className="flex items-center gap-2.5 px-4 pb-2.5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 10px)' }}>
-        <h1 className="m-0 flex-1 text-[17px] font-bold text-white">Preview</h1>
+        <h1 className="m-0 flex-1 text-[17px] font-bold text-white">{title}</h1>
         <button
           className="iconbtn bg-white/15 text-white"
           data-testid="preview-close"

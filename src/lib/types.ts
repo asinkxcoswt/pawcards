@@ -50,6 +50,9 @@ export interface Card {
   backText: string
   /** last AI-generation subject (derived from backText) */
   subject?: string
+  /** manual sort position within the deck (drag & drop). Absent = fall back to
+   *  newest-first by `created` — see lib/order.ts */
+  order?: number
   /** kept out of every share (deck QR + rooms); still yours to review */
   private?: boolean
   srs: Srs | null

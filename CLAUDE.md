@@ -56,6 +56,14 @@ src/
                       machinery first (seed=null, sets everyone's flag with no deck),
                       then the populated seed later so only genuinely-new users get it
   lib/srs.ts          SM-2 variant; Easy RETIRES the card (product decision)
+  lib/order.ts        manual card order (drag & drop, v3.19). `card.order` is
+                      SPARSE: never-dragged cards have none and fall back to
+                      -created, so the default stays newest-first. A drop assigns
+                      the moved card a MIDPOINT between its new neighbours, so a
+                      drag touches exactly ONE card — renumbering the deck would
+                      make every card "newest" and clobber other devices in the
+                      newest-wins merge. DeckView + startCram both sort via
+                      sortDeckCards, so "In order" review matches the grid
   lib/sync.ts         mergeRemote (newest-edit-wins per card + tombstones)
   lib/prompts.ts      describePrompt (SD/Flux) vs instructPrompt (Gemini/OpenAI)
   lib/images.ts       image blob store (v3.11): polished.front is a dataURL
@@ -349,8 +357,25 @@ own Cloudflare account + worker URL rather than a shared one.
 ## Product decisions
 
 - **Easy = retire** ("I know this — never show again", shows "✓ done").
-  Rescue: Shuffle-all (cram) shows retired cards; grading **Again** there
+  Rescue: "Review all" (cram) shows retired cards; grading **Again** there
   un-retires. Cram grades otherwise don't touch SRS.
+- **Deck review buttons** (v3.19, replaced the old "Shuffle all"): a split
+  button — main action is "Review (N)" in ACCENT when cards are due, else a
+  plain "Review all"; the caret menu always offers "Review all cards…" (count
+  slider + Shuffle/In-order, like the room's group review) and "Pick cards to
+  review". The latter enters a PICK mode where tapping any card opens it as a
+  review card (CardPreviewModal, front → tap → answer) — self-paced study with
+  NO session, no grading, no rescheduling.
+- **Deck card modes** (DeckView `mode`): `normal` (tap opens the editor, drag
+  reorders — see lib/order.ts) · `select` (multi-select with an action bar:
+  "Move to…" + adaptive Make private/shareable) · `pick` (selective review).
+  Dragging is only on in `normal`; outside it dnd-kit's attributes are NOT
+  spread, or the tile reads as aria-disabled to screen readers.
+- Reorder activation: mouse needs an 8px drag, touch a 250ms long-press — so
+  tap-to-open and grid scrolling both still work.
+- **Moving cards** (v3.19) drops their `order` (it was a position in the OLD
+  deck) so they sort newest-first in the destination; SRS, images and ink are
+  untouched.
 - "Again" during a normal session requeues the card at the end of that session.
 - Destructive actions use tap-again-to-confirm (`ConfirmButton`), never
   `window.confirm`.
